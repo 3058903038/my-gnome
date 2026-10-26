@@ -71,18 +71,18 @@ AZ-OS-3D 图标主题原始压缩包 34MB，超过 Gitee 单次推送限制，�
 `gnome-settings.conf` 中，新系统 `dconf load` 后会被标记为启用；
 **但需要你手动从 Extension Manager 安装对应扩展，才会真正生效**：
 
-| # | UUID | 作用 |
-|---|------|------|
-| 1 | `forge@jmmaranan.com` | 平铺窗口管理器（自动平铺窗口） |
-| 2 | `appmenu-is-back@fthx` | 把应用菜单放回顶栏 |
-| 3 | `appnameindicator@dev64.xyz` | 顶栏显示当前应用名称 |
-| 4 | `active-app-indicator@morhenac` | 顶栏显示当前应用图标 |
-| 5 | `lunarcal@ailin.nemui` | 日历显示农历 |
-| 6 | `system-monitor-next@paradoxxx.zero.gmail.com` | 顶栏系统监视器（CPU/内存/网络） |
-| 7 | `battery-usage-wattmeter@halfmexicanhalfamazing.gmail.com` | 顶栏显示电池功率（瓦特） |
-| 8 | `kimpanel@kde.org` | KDE 输入法面板支持 |
+| # | UUID | 扩展名 | 功能说明 |
+|---|------|--------|----------|
+| 1 | `forge@jmmaranan.com` | Forge | **自动平铺窗口管理器**。开启后新窗口自动按网格平铺排列（类似 i3/sway），支持快捷键切换布局（左右分屏、三栏、堆叠等），是 GNOME 上最流行的平铺扩展。适合多窗口高效办公。 |
+| 2 | `appmenu-is-back@fthx` | App Menu Is Back | **把应用菜单（File/Edit/View 那一条）放回顶栏**。GNOME 从 3.32 起移除了顶栏应用菜单，这个扩展把它加回来：当前聚焦的程序会在顶栏显示其菜单栏，节省窗口内空间。 |
+| 3 | `appnameindicator@dev64.xyz` | App Name Indicator | **在顶栏显示当前活动应用的名称**（文字）。多任务时一眼看出当前在用什么程序，配合窗口切换很方便。 |
+| 4 | `active-app-indicator@morhenac` | Active App Indicator | **在顶栏显示当前活动应用的图标**。和第 3 个类似但显示的是图标而非文字，也可显示在左上角「活动」按钮位置。 |
+| 5 | `lunarcal@ailin.nemui` | Lunar Calendar | **在日历弹窗中显示农历日期**。点顶栏时钟弹出的日历里，每个公历日期下方会附带对应的农历（阴历）日期和节气，中文用户常用。 |
+| 6 | `system-monitor-next@paradoxxx.zero.gmail.com` | System Monitor Next | **顶栏系统监视器**。在顶栏实时显示 CPU 占用率、内存用量、交换分区、网络上下行速率、磁盘读写、温度等，可自定义显示哪些指标和刷新频率。 |
+| 7 | `battery-usage-wattmeter@halfmexicanhalfamazing.gmail.com` | Battery Usage Wattmeter | **顶栏显示电池实时功率（瓦特）**。除电量百分比外，还能看到当前放电/充电功率（如 8.5W），便于判断哪个程序耗电快。 |
+| 8 | `kimpanel@kde.org` | Kimpanel | **KDE 输入法面板协议支持**。让 GNOME 顶栏能显示 fcitx5/ibus 等输入法的候选词面板（配合 kimpanel 输入法模块使用）。你现在用 ibus-rime，一般用不到，但装上可与 KDE 输入法框架互通。 |
 
-补装方法：打开 **Extension Manager**（restore.sh 已安装）逐个搜索安装即可。
+**补装方法**：打开 **Extension Manager**（`restore.sh` 已自动安装）→ 搜索上面的「扩展名」列 → 点安装。装好后会自动处于启用状态（dconf 已记录）。
 
 > 已完整备份并会自动还原的是另外 **17 个实际运行的扩展**，
 > 见 `extensions/enabled.txt` 与 `extensions/files/`。
