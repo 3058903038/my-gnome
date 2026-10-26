@@ -41,3 +41,4 @@ bash <(curl -fsSL https://raw.githubusercontent.com/zkw3058903038/my-gnome/main/
 - 仅适用于 **Arch Linux + GNOME**
 - GNOME 扩展的**代码本身**需要从 extensions.gnome.org 或 AUR 安装；本仓库只备份扩展**清单 + 设置**，`restore.sh` 会尝试启用已存在的扩展
 - 仓库为个人使用，包含用户级配置（路径中含用户名 `ailun`）
+probe 1793017308
