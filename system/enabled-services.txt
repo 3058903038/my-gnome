@@ -1,0 +1,15 @@
+battery-charge-threshold.service
+bluetooth.service
+gdm.service
+getty@.service
+grub-btrfsd.service
+iwd.service
+NetworkManager-dispatcher.service
+NetworkManager-wait-online.service
+NetworkManager.service
+power-profiles-daemon.service
+systemd-timesyncd.service
+systemd-userdbd.socket
+remote-fs.target
+snapper-timeline.timer
+14
