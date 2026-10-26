@@ -58,6 +58,19 @@ for pkg in base-devel git curl tar; do
   pacman -Qq "$pkg" >/dev/null 2>&1 || sudo pacman -S --needed --noconfirm "$pkg" || true
 done
 
+# ---------- 1b. 恢复 pacman 源配置（archlinuxcn 必需，用于 AUR 镜像包）----------
+if [ -f "$REPO_DIR/system/pacman.conf" ]; then
+  log "配置 pacman 源（含 archlinuxcn）"
+  if ! grep -q '^\[archlinuxcn\]' /etc/pacman.conf 2>/dev/null; then
+    sudo cp -f /etc/pacman.conf "/etc/pacman.conf.bak.$(date +%s)" 2>/dev/null || true
+    # 只追加 archlinuxcn 段，避免覆盖系统其他配置
+    grep -A3 '^\[archlinuxcn\]' "$REPO_DIR/system/pacman.conf" | sudo tee -a /etc/pacman.conf >/dev/null 2>&1 || true
+  fi
+  # 安装 keyring 并刷新
+  sudo pacman -S --needed --noconfirm archlinuxcn-keyring 2>/dev/null || true
+  sudo pacman -Syy 2>/dev/null || true
+fi
+
 # ---------- 2. 安装软件包 ----------
 log "第 2 步：安装软件包（官方源）"
 if [ -f "$REPO_DIR/packages/pacman-explicit.txt" ]; then
@@ -197,9 +210,12 @@ fi
 # ---------- 8. 恢复主题 ----------
 log "第 8 步：恢复主题（光标 / 图标 / GTK）"
 
-# 8a. 光标 + 图标主题（tar.gz 解压）
+# 8a. 光标 + 图标主题
 if [ -d "$REPO_DIR/themes" ]; then
   mkdir -p "$HOME_DIR/.local/share/icons"
+  TMP_THEMES="$(mktemp -d)"
+
+  # 1) 完整压缩包（MacOSX 光标 / WhiteSur 备份）
   for tarball in "$REPO_DIR/themes"/*.tar.gz; do
     [ -f "$tarball" ] || continue
     tname="$(basename "$tarball" .tar.gz)"
@@ -207,6 +223,26 @@ if [ -d "$REPO_DIR/themes" ]; then
     tar -xzf "$tarball" -C "$HOME_DIR/.local/share/icons/" 2>/dev/null \
       || err "解压 $tname 失败"
   done
+
+  # 2) 分片拼接（AZ-OS-3D 图标主题，因 Gitee 单文件限制被切成 1MB 分片）
+  if [ -d "$REPO_DIR/themes/parts" ] && ls "$REPO_DIR/themes/parts"/AZ-OS-3D.tar.gz.part-* >/dev/null 2>&1; then
+    log "拼接 AZ-OS-3D 图标主题分片（$(ls "$REPO_DIR/themes/parts"/AZ-OS-3D.tar.gz.part-* | wc -l) 片）"
+    cat "$REPO_DIR/themes/parts"/AZ-OS-3D.tar.gz.part-* > "$TMP_THEMES/AZ-OS-3D.tar.gz"
+    if tar -xzf "$TMP_THEMES/AZ-OS-3D.tar.gz" -C "$HOME_DIR/.local/share/icons/" 2>/dev/null; then
+      log "AZ-OS-3D 图标主题已解压"
+    else
+      err "AZ-OS-3D 分片解压失败"
+    fi
+  fi
+  rm -rf "$TMP_THEMES"
+fi
+
+# 8a-2. 桌面壁纸
+if [ -f "$REPO_DIR/config/background" ]; then
+  log "恢复桌面壁纸"
+  cp -f "$REPO_DIR/config/background" "$HOME_DIR/.config/background" 2>/dev/null \
+    && gsettings set org.gnome.desktop.background picture-uri "file://$HOME_DIR/.config/background" 2>/dev/null || true
+  gsettings set org.gnome.desktop.background picture-uri-dark "file://$HOME_DIR/.config/background" 2>/dev/null || true
 fi
 
 # 8b. WhiteSur GTK 主题（从 GitHub 安装）
@@ -224,6 +260,12 @@ if [ ! -d "$HOME_DIR/.themes/WhiteSur-Light" ] && [ ! -d "$HOME_DIR/.themes/Whit
   rm -rf "$WS_BUILD" 2>/dev/null
 fi
 
+# 8c. 桌面壁纸
+if [ -f "$REPO_DIR/config/background" ]; then
+  cp -f "$REPO_DIR/config/background" "$HOME_DIR/.config/background" 2>/dev/null \
+    && log "已恢复桌面壁纸" || true
+fi
+
 # ---------- 9. Rime 输入法 ----------
 log "第 9 步：恢复 Rime 输入法配置"
 if [ -d "$REPO_DIR/config/ibus-rime" ]; then
@@ -231,6 +273,11 @@ if [ -d "$REPO_DIR/config/ibus-rime" ]; then
   for f in default.custom.yaml installation.yaml user.yaml; do
     [ -f "$REPO_DIR/config/ibus-rime/$f" ] && cp -f "$REPO_DIR/config/ibus-rime/$f" "$HOME_DIR/.config/ibus/rime/" 2>/dev/null || true
   done
+  # 用户词库（个人积累的输入习惯）
+  if [ -d "$REPO_DIR/config/ibus-rime/rime_ice.userdb" ]; then
+    cp -r "$REPO_DIR/config/ibus-rime/rime_ice.userdb" "$HOME_DIR/.config/ibus/rime/" 2>/dev/null \
+      && log "已恢复 Rime 用户词库" || true
+  fi
   # 重建 ibus 缓存
   ibus write-cache 2>/dev/null || true
 fi
@@ -255,6 +302,16 @@ EOF
   echo 85 | sudo tee /sys/class/power_supply/BAT0/charge_control_end_threshold >/dev/null 2>&1 || true
 else
   log "未检测到电池，跳过"
+fi
+
+# ---------- 10b. 启用系统服务 ----------
+if [ -f "$REPO_DIR/system/enabled-services.txt" ]; then
+  log "第 11 步：启用系统服务"
+  while IFS= read -r svc; do
+    [ -z "$svc" ] && continue
+    case "$svc" in '#'*) continue;; esac
+    sudo systemctl enable "$svc" 2>/dev/null && log "已启用服务：$svc" || true
+  done < "$REPO_DIR/system/enabled-services.txt"
 fi
 
 # ---------- 完成 ----------
