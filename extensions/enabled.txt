@@ -1,0 +1,17 @@
+blur-my-shell@aunetx
+dash-to-dock@micxgx.gmail.com
+gnome-fuzzy-app-search@gnome-shell-extensions.Czarlie.gitlab.com
+add-to-desktop@tommimon.github.com
+apps-menu@gnome-shell-extensions.gcampax.github.com
+logomenu@aryan_k
+compiz-alike-magic-lamp-effect@hermes83.github.com
+system-monitor-panel@naimur
+appindicatorsupport@rgcjonas.gmail.com
+Bluetooth-Battery-Meter@maniacx.github.com
+gtk4-ding@smedius.gitlab.com
+lockkeys@vaina.lt
+user-theme@gnome-shell-extensions.gcampax.github.com
+compiz-windows-effect@hermes83.github.com
+just-perfection-desktop@just-perfection
+openbar@neuromorph
+quick-settings-tweaks@qwreey

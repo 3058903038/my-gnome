@@ -1,0 +1,8 @@
+deepseek-harness-desktop
+gdm-settings
+gnome-shell-extension-just-perfection-desktop
+google-chrome
+opencode-beta
+pycharm
+typora-free-bin
+wechat-bin
