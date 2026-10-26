@@ -14,6 +14,8 @@ sudo pacman -S --needed git
 git clone https://gitee.com/kw3058903038/my-gnome.git
 cd my-gnome
 bash restore.sh
+若已安装gnome:
+bash restore-no-gnome.sh
 ```
 
 跑完后 **注销并重新登录**（或重启），让扩展、主题、输入法生效。
