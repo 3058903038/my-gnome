@@ -41,7 +41,8 @@ bash restore.sh
 
 | 路径 | 说明 |
 |------|------|
-| `restore.sh` | 一键恢复脚本（核心） |
+| `restore.sh` | 一键恢复脚本（完整版，含安装 GNOME 桌面） |
+| `restore-no-gnome.sh` | 一键恢复脚本（无桌面版，仅恢复配置） |
 | `gnome-settings.conf` | dconf 导出的全部 GNOME 设置 |
 | `packages/pacman-explicit.txt` | 显式安装的官方包 |
 | `packages/aur.txt` | AUR 包清单 |
