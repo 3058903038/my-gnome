@@ -1,1 +1,18 @@
-['blur-my-shell@aunetx', 'dash-to-dock@micxgx.gmail.com', 'forge@jmmaranan.com', 'gnome-fuzzy-app-search@gnome-shell-extensions.Czarlie.gitlab.com', 'add-to-desktop@tommimon.github.com', 'appmenu-is-back@fthx', 'appnameindicator@dev64.xyz', 'active-app-indicator@morhenac', 'logomenu@aryan_k', 'lunarcal@ailin.nemui', 'compiz-alike-magic-lamp-effect@hermes83.github.com', 'system-monitor-next@paradoxxx.zero.gmail.com', 'system-monitor-panel@naimur', 'appindicatorsupport@rgcjonas.gmail.com', 'battery-usage-wattmeter@halfmexicanhalfamazing.gmail.com', 'Bluetooth-Battery-Meter@maniacx.github.com', 'gtk4-ding@smedius.gitlab.com', 'kimpanel@kde.org', 'lockkeys@vaina.lt', 'openbar@neuromorph', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'compiz-windows-effect@hermes83.github.com', 'just-perfection-desktop@just-perfection', 'quick-settings-tweaks@qwreey', 'Battery-Health-Charging@maniacx.github.com', 'preserve-battery-health@marcosdalvarez.org', 'tweaks-system-menu@extensions.gnome-shell.fifi.org', 'apps-menu@gnome-shell-extensions.gcampax.github.com']
+Bluetooth-Battery-Meter@maniacx.github.com
+add-to-desktop@tommimon.github.com
+appindicatorsupport@rgcjonas.gmail.com
+apps-menu@gnome-shell-extensions.gcampax.github.com
+blur-my-shell@aunetx
+compiz-alike-magic-lamp-effect@hermes83.github.com
+compiz-windows-effect@hermes83.github.com
+dash-to-dock@micxgx.gmail.com
+gnome-fuzzy-app-search@gnome-shell-extensions.Czarlie.gitlab.com
+gtk4-ding@smedius.gitlab.com
+just-perfection-desktop@just-perfection
+lockkeys@vaina.lt
+logomenu@aryan_k
+openbar@neuromorph
+quick-settings-tweaks@qwreey
+system-monitor-panel@naimur
+user-theme@gnome-shell-extensions.gcampax.github.com
+Battery-Health-Charging@maniacx.github.com

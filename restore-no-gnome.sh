@@ -309,14 +309,10 @@ fi
 log "第 9 步：恢复 Rime 输入法配置"
 if [ -d "$REPO_DIR/config/ibus-rime" ]; then
   mkdir -p "$HOME_DIR/.config/ibus/rime"
-  for f in default.custom.yaml installation.yaml user.yaml; do
-    [ -f "$REPO_DIR/config/ibus-rime/$f" ] && cp -f "$REPO_DIR/config/ibus-rime/$f" "$HOME_DIR/.config/ibus/rime/" 2>/dev/null || true
-  done
-  # 用户词库（个人积累的输入习惯）
-  if [ -d "$REPO_DIR/config/ibus-rime/rime_ice.userdb" ]; then
-    cp -r "$REPO_DIR/config/ibus-rime/rime_ice.userdb" "$HOME_DIR/.config/ibus/rime/" 2>/dev/null \
-      && log "已恢复 Rime 用户词库" || true
-  fi
+  # 全量恢复：方案 schema、lua 脚本、opencc 词典、用户词库、个人配置
+  # （仓库已排除 build/ 编译缓存与 cn_dicts/ 大词典，后者由 rime-ice-git 提供）
+  cp -r "$REPO_DIR/config/ibus-rime/." "$HOME_DIR/.config/ibus/rime/" 2>/dev/null \
+    && log "已恢复 Rime 完整配置（含用户词库、lua、opencc）" || err "Rime 配置复制失败"
   # 检查雾凇拼音方案是否安装，缺失会导致无法打字
   if [ ! -f /usr/share/rime-data/rime_ice.schema.yaml ] && [ ! -f "$HOME_DIR/.config/ibus/rime/rime_ice.schema.yaml" ]; then
     log "警告：未找到雾凇拼音（rime_ice）方案，中文输入可能无法使用"

@@ -3,7 +3,9 @@
 个人 **Arch Linux + GNOME 51** 桌面环境完整备份，可一键还原成当前状态
 （桌面环境 / 软件包 / 扩展 / 主题 / 输入法 / 配置 / 壁纸）。
 
-仓库地址：<https://gitee.com/kw3058903038/my-gnome>
+仓库地址：
+- Gitee：<https://gitee.com/kw3058903038/my-gnome>
+- GitHub：<https://github.com/3058903038/my-gnome>
 
 ## 一键恢复（新机器上）
 
