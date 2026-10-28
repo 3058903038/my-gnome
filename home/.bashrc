@@ -22,8 +22,8 @@ export PATH="$HOME/.local/bin:$PATH"
 # <<< deepseek-harness dsh <<<
 
 # System proxy
-export HTTP_PROXY=http://127.0.0.1:7897
-export HTTPS_PROXY=http://127.0.0.1:7897
-export http_proxy=http://127.0.0.1:7897
-export https_proxy=http://127.0.0.1:7897
+export HTTP_PROXY=http://127.0.0.1:7890
+export HTTPS_PROXY=http://127.0.0.1:7890
+export http_proxy=http://127.0.0.1:7890
+export https_proxy=http://127.0.0.1:7890
 export NO_PROXY=localhost,127.0.0.1,::1
