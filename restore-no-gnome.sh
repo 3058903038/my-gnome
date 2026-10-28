@@ -203,7 +203,48 @@ if [ -f "$REPO_DIR/config/user-dirs/user-dirs.dirs" ]; then
   cp -f "$REPO_DIR/config/user-dirs/user-dirs.dirs"   "$HOME_DIR/.config/user-dirs/" 2>/dev/null || true
   cp -f "$REPO_DIR/config/user-dirs/user-dirs.locale" "$HOME_DIR/.config/user-dirs/" 2>/dev/null || true
 fi
+# 家目录下的 user-dirs.dirs / user-dirs.locale（xdg-user-dirs 直接在 ~/.config 下）
+[ -f "$REPO_DIR/config/user-dirs.dirs" ] && cp -f "$REPO_DIR/config/user-dirs.dirs" "$HOME_DIR/.config/" 2>/dev/null || true
+[ -f "$REPO_DIR/config/user-dirs.locale" ] && cp -f "$REPO_DIR/config/user-dirs.locale" "$HOME_DIR/.config/" 2>/dev/null || true
 [ -f "$REPO_DIR/config/mimeapps.list" ] && cp -f "$REPO_DIR/config/mimeapps.list" "$HOME_DIR/.config/" 2>/dev/null || true
+
+# 7b. 应用配置（终端 / 编辑器 / 截图 / 电源 / Qt）
+copy_config "$REPO_DIR/config/nvim"       "$HOME_DIR/.config/nvim"
+copy_config "$REPO_DIR/config/opencode"   "$HOME_DIR/.config/opencode"
+copy_config "$REPO_DIR/config/tlpui"      "$HOME_DIR/.config/tlpui"
+copy_config "$REPO_DIR/config/flameshot"  "$HOME_DIR/.config/flameshot"
+copy_config "$REPO_DIR/config/Code/User"  "$HOME_DIR/.config/Code/User"
+[ -f "$REPO_DIR/config/QtProject.conf" ] && cp -f "$REPO_DIR/config/QtProject.conf" "$HOME_DIR/.config/" 2>/dev/null || true
+
+# 7c. 用户字体（霞鹜文楷 LXGW WenKai，含等宽版）
+# 字体体积大（每个 25MB，共 154MB），不放进仓库；这里从 GitHub Release 自动下载。
+# 仓库里若有 fonts/*.ttf 则优先用本地的，省一次下载。
+LXGW_VER="v1.530"
+LXGW_BASE="https://github.com/lxgw/LxgwWenKai/releases/download/$LXGW_VER"
+LXGW_FONTS="LXGWWenKai-Light LXGWWenKai-Regular LXGWWenKai-Medium LXGWWenKaiMono-Light LXGWWenKaiMono-Regular LXGWWenKaiMono-Medium"
+
+log "安装字体：霞鹜文楷（LXGW WenKai $LXGW_VER）"
+mkdir -p "$HOME_DIR/.local/share/fonts"
+
+if [ -d "$REPO_DIR/fonts" ] && ls "$REPO_DIR/fonts"/*.ttf >/dev/null 2>&1; then
+  cp -f "$REPO_DIR/fonts"/*.ttf "$HOME_DIR/.local/share/fonts/" 2>/dev/null || true
+  log "已从仓库安装本地字体"
+else
+  for f in $LXGW_FONTS; do
+    dst="$HOME_DIR/.local/share/fonts/$f.ttf"
+    if [ -f "$dst" ]; then
+      log "字体已存在，跳过：$f"
+      continue
+    fi
+    if curl -fsSL --retry 3 --connect-timeout 20 "$LXGW_BASE/$f.ttf" -o "$dst"; then
+      log "已下载：$f"
+    else
+      rm -f "$dst"
+      err "下载失败：$f（可手动到 https://github.com/lxgw/LxgwWenKai/releases 下载）"
+    fi
+  done
+fi
+fc-cache -f "$HOME_DIR/.local/share/fonts" >/dev/null 2>&1 || true
 
 # ---------- 8. 恢复主题 ----------
 log "第 8 步：恢复主题（光标 / 图标 / GTK）"
@@ -276,6 +317,13 @@ if [ -d "$REPO_DIR/config/ibus-rime" ]; then
     cp -r "$REPO_DIR/config/ibus-rime/rime_ice.userdb" "$HOME_DIR/.config/ibus/rime/" 2>/dev/null \
       && log "已恢复 Rime 用户词库" || true
   fi
+  # 检查雾凇拼音方案是否安装，缺失会导致无法打字
+  if [ ! -f /usr/share/rime-data/rime_ice.schema.yaml ] && [ ! -f "$HOME_DIR/.config/ibus/rime/rime_ice.schema.yaml" ]; then
+    log "警告：未找到雾凇拼音（rime_ice）方案，中文输入可能无法使用"
+    log "      请安装后重试：paru -S rime-ice-git"
+  fi
+  # 清掉旧编译缓存，强制按当前方案重新部署
+  rm -rf "$HOME_DIR/.config/ibus/rime/build"
   # 重建 ibus 缓存
   ibus write-cache 2>/dev/null || true
 fi

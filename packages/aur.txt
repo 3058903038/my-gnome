@@ -2,7 +2,10 @@ deepseek-harness-desktop
 gdm-settings
 gnome-shell-extension-just-perfection-desktop
 google-chrome
+intellij-idea-ultimate-edition
+linuxqq
 opencode-beta
 pycharm
 typora-free-bin
+visual-studio-code-electron-bin
 wechat-bin

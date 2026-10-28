@@ -55,7 +55,9 @@ plugins=(
 )
 
 source $ZSH/oh-my-zsh.sh
-
+autoload -Uz compinit 
+compinit
+zstyle ':completion:*' menu select
 # ── 系统 zsh 插件（pacman 装的，source 它们的 .zsh） ──────
 # 自动建议（灰色幽灵命令，按 → 接受）
 source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh 2>/dev/null
@@ -88,3 +90,31 @@ alias cls='clear'
 
 # To customize prompt, run `p10k configure` or install Powerlevel10k
 # 首次进入 zsh 时，p10k 会自动启动配置向导；也可手动运行 `p10k configure`
+# >>> deepseek-harness dsh >>>
+export PATH="$HOME/.local/bin:$PATH"
+# <<< deepseek-harness dsh <<<
+#
+# ==========================================
+# Zsh 自动补全与高亮配置
+# ==========================================
+
+# 1. 将 Arch 官方的补全路径加入环境
+fpath=(/usr/share/zsh/site-functions $fpath)
+
+# 2. 初始化补全系统（这是核心，必须先执行）
+autoload -Uz compinit
+compinit
+
+# 3. 开启 Tab 菜单选择（按 Tab 后可以用方向键上下选）
+zstyle ':completion:*' menu select
+
+# 4. 补全时忽略大小写（比如输入 DOWN 也能补全 download）
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+
+# 5. 给补全菜单加上颜色和边框（看起来更直观）
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' verbose yes
+zstyle ':completion:*' format 'Completing %d'
+
+# 6. 加载语法高亮（必须放在所有命令最后）
+source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh 2>/dev/null

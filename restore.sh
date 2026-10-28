@@ -207,6 +207,34 @@ if [ -f "$REPO_DIR/config/user-dirs/user-dirs.dirs" ]; then
 fi
 [ -f "$REPO_DIR/config/mimeapps.list" ] && cp -f "$REPO_DIR/config/mimeapps.list" "$HOME_DIR/.config/" 2>/dev/null || true
 
+# 7b. 应用配置（编辑器 / 截图 / 终端 / 桌面杂项）
+copy_config "$REPO_DIR/config/nvim"       "$HOME_DIR/.config/nvim"
+copy_config "$REPO_DIR/config/opencode"   "$HOME_DIR/.config/opencode"
+copy_config "$REPO_DIR/config/tlpui"      "$HOME_DIR/.config/tlpui"
+copy_config "$REPO_DIR/config/flameshot"  "$HOME_DIR/.config/flameshot"
+copy_config "$REPO_DIR/config/Code/User"  "$HOME_DIR/.config/Code/User"
+[ -f "$REPO_DIR/config/QtProject.conf" ] && cp -f "$REPO_DIR/config/QtProject.conf" "$HOME_DIR/.config/" 2>/dev/null || true
+[ -f "$REPO_DIR/config/user-dirs.dirs" ] && cp -f "$REPO_DIR/config/user-dirs.dirs" "$HOME_DIR/.config/" 2>/dev/null || true
+[ -f "$REPO_DIR/config/user-dirs.locale" ] && cp -f "$REPO_DIR/config/user-dirs.locale" "$HOME_DIR/.config/" 2>/dev/null || true
+[ -f "$REPO_DIR/home/.gitconfig" ] && cp -f "$REPO_DIR/home/.gitconfig" "$HOME_DIR/" 2>/dev/null || true
+
+# 7c. 字体（霞鹜文楷 LXGW WenKai，含等宽版）—— 从上游 release 下载，不占仓库体积
+LXGW_VER="v1.530"
+LXGW_BASE="https://github.com/lxgw/LxgwWenKai/releases/download/$LXGW_VER"
+if [ ! -f "$HOME_DIR/.local/share/fonts/LXGWWenKai-Regular.ttf" ]; then
+  log "安装字体：霞鹜文楷（LXGW WenKai $LXGW_VER）"
+  mkdir -p "$HOME_DIR/.local/share/fonts"
+  for fn in LXGWWenKai-Light.ttf LXGWWenKai-Regular.ttf LXGWWenKai-Medium.ttf \
+            LXGWWenKaiMono-Light.ttf LXGWWenKaiMono-Regular.ttf LXGWWenKaiMono-Medium.ttf; do
+    [ -f "$HOME_DIR/.local/share/fonts/$fn" ] && continue
+    curl -fsSL --retry 3 -o "$HOME_DIR/.local/share/fonts/$fn" "$LXGW_BASE/$fn" \
+      || err "字体下载失败：$fn（可手动到 github.com/lxgw/LxgwWenKai/releases 下载）"
+  done
+  fc-cache -f "$HOME_DIR/.local/share/fonts" >/dev/null 2>&1 || true
+else
+  log "字体已存在，跳过"
+fi
+
 # ---------- 8. 恢复主题 ----------
 log "第 8 步：恢复主题（光标 / 图标 / GTK）"
 
@@ -278,6 +306,13 @@ if [ -d "$REPO_DIR/config/ibus-rime" ]; then
     cp -r "$REPO_DIR/config/ibus-rime/rime_ice.userdb" "$HOME_DIR/.config/ibus/rime/" 2>/dev/null \
       && log "已恢复 Rime 用户词库" || true
   fi
+  # 检查雾凇拼音方案是否安装，缺失会导致无法打字
+  if [ ! -f /usr/share/rime-data/rime_ice.schema.yaml ] && [ ! -f "$HOME_DIR/.config/ibus/rime/rime_ice.schema.yaml" ]; then
+    log "警告：未找到雾凇拼音（rime_ice）方案，中文输入可能无法使用"
+    log "      请安装后重试：paru -S rime-ice-git"
+  fi
+  # 清掉旧编译缓存，强制按当前方案重新部署
+  rm -rf "$HOME_DIR/.config/ibus/rime/build"
   # 重建 ibus 缓存
   ibus write-cache 2>/dev/null || true
 fi

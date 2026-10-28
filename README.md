@@ -30,7 +30,7 @@ bash restore-no-gnome.sh
 | 1 | 安装 GNOME 桌面环境 + gdm 显示管理器 |
 | 2 | 恢复 pacman 源配置（archlinuxcn，装 clash-verge-rev 等必需） |
 | 3 | 安装 136 个官方源软件包 |
-| 4 | 安装 8 个 AUR 包（自动先装 yay） |
+| 4 | 安装 9 个 AUR 包（自动先装 yay） |
 | 5 | 安装 **Extension Manager** + 恢复并启用 17 个 GNOME 扩展 |
 | 6 | 恢复 dconf 全部设置（主题、顶栏、Openbar、输入法、窗口按钮等） |
 | 7 | 恢复 shell 配置（zsh + Oh My Zsh + Powerlevel10k） |
@@ -53,8 +53,15 @@ bash restore-no-gnome.sh
 | `extensions/files/` | 扩展代码本体（从用户目录备份） |
 | `extensions/MISSING-extensions.md` | 未备份扩展清单（见下方备注） |
 | `config/` | `~/.config` 下关键配置 + 壁纸 `background` + Rime 词库 |
+| `config/nvim/` | Neovim 配置（`init.lua`） |
+| `config/Code/User/` | VS Code 用户配置（`settings.json` / snippets / profiles） |
+| `config/flameshot/` | Flameshot 截图工具配置 |
+| `config/opencode/` | opencode 配置 |
+| `config/tlpui/` | TLPUI（电源管理）配置 |
+| `config/QtProject.conf` | Qt 应用通用设置 |
+| `fonts/` | 霞鹜文楷 LXGW WenKai 字体（含等宽版，6 个 TTF） |
 | `system/` | pacman 源配置、已启用系统服务列表 |
-| `home/` | `.zshrc` / `.p10k.zsh` / `.bashrc` / `.bash_profile` |
+| `home/` | `.zshrc` / `.p10k.zsh` / `.bashrc` / `.bash_profile` / `.gitconfig` |
 | `themes/MacOSX.tar.gz` | macOS 光标主题 |
 | `themes/WhiteSur.tar.gz` | WhiteSur GTK 主题（窗口外观） |
 | `themes/parts/` | AZ-OS-3D 图标主题（34 个 1MB 分片，脚本自动拼接） |
