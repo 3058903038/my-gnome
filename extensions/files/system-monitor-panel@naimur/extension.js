@@ -29,6 +29,10 @@ import { UpdateNotice } from './updateNotice.js';
 Gio._promisify(Gio.File.prototype, 'load_contents_async');
 // Makes communicate_utf8_async() awaitable; it resolves to [stdout, stderr].
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
+// For reading pci.ids a chunk at a time.
+Gio._promisify(Gio.File.prototype, 'read_async');
+Gio._promisify(Gio.InputStream.prototype, 'read_bytes_async');
+Gio._promisify(Gio.InputStream.prototype, 'close_async');
 
 const DECODER = new TextDecoder('utf-8');
 
@@ -78,9 +82,27 @@ function listSysDir(dirPath) {
 }
 
 /**
+ * The temperature channel numbers in a hwmon chip's directory listing, in
+ * order. Numbering has gaps — a chip may expose temp2_input and temp3_input
+ * with no temp1_input — and most chips (battery, charger, fans) have none, so
+ * the listing beats trying temp1…tempN by name.
+ */
+function tempChannels(files) {
+    return files
+        .map(file => /^temp(\d+)_input$/.exec(file))
+        .filter(match => match !== null)
+        .map(match => parseInt(match[1], 10))
+        .sort((a, b) => a - b);
+}
+
+/**
  * Swap an actor's `<prefix>-normal|warning|critical` state class for `state`.
  */
 function setStateClass(actor, prefix, state) {
+    // Every class change restyles the actor, and most refreshes keep the
+    // state it already has.
+    if (actor.has_style_class_name(`${prefix}-${state}`))
+        return;
     for (const s of ['normal', 'warning', 'critical'])
         actor.remove_style_class_name(`${prefix}-${s}`);
     actor.add_style_class_name(`${prefix}-${state}`);
@@ -253,34 +275,90 @@ async function isExternalDisk(device, mountPoint) {
     return removable !== null && removable.trim() === '1';
 }
 
+/**
+ * The whole disk a /dev node lives on ("nvme0n1p1" → "nvme0n1", "sda" →
+ * "sda"), or null for nodes with no /sys/class/block entry, such as
+ * device-mapper volumes.
+ */
+function blockDiskName(device) {
+    const blockName = device.slice('/dev/'.length);
+
+    let target;
+    try {
+        target = GLib.file_read_link(`/sys/class/block/${blockName}`);
+    } catch (_e) {
+        return null;
+    }
+
+    // A partition's directory sits inside its disk's in the sysfs path.
+    if (!GLib.file_test(`/sys/class/block/${blockName}/partition`, GLib.FileTest.EXISTS))
+        return blockName;
+    const segments = target.split('/');
+    return segments[segments.length - 2] ?? null;
+}
+
+/**
+ * Whether a disk hangs off a port the kernel marks as hot-pluggable, such as
+ * Thunderbolt or USB4: some device-tree ancestor's `removable` attribute reads
+ * "removable". (The disk's own `removable` file is the 0/1 media flag that
+ * isExternalDisk() checks.)
+ */
+async function isOnRemovablePort(disk) {
+    let target;
+    try {
+        target = GLib.file_read_link(`/sys/class/block/${disk}`);
+    } catch (_e) {
+        return false;
+    }
+
+    // "../../devices/pci0000:00/…/nvme0n1" → "/sys/devices/pci0000:00/…"
+    let dir = `/sys/${target.replace(/^(\.\.\/)+/, '')}`;
+    while ((dir = GLib.path_get_dirname(dir)).startsWith('/sys/devices/')) {
+        const removable = await readFile(`${dir}/removable`);
+        if (removable !== null && removable.trim() === 'removable')
+            return true;
+    }
+    return false;
+}
+
 const FS_USAGE_ATTRS = 'filesystem::size,filesystem::used,filesystem::free';
 
 /**
- * Query every mount point's size/used/free in bytes, then hand the successful
- * results to `callback`.
+ * How long a refresh waits for a mount to report its usage before going on
+ * without it. Under the 2-second minimum interval, so a refresh is always over
+ * before the next begins; a healthy statfs answers in microseconds.
+ */
+const FS_QUERY_DEADLINE_MS = 1000;
+
+/** What a mount's usage resolves to when it missed the deadline. */
+const TIMED_OUT = Symbol('timed out');
+
+/**
+ * Query one mount point's size/used/free in bytes. Resolves to
+ * { total, used, free }, or null if the mount cannot be stat'd, reports a
+ * zero size, or `cancellable` fired.
  *
  * statfs() blocks in uninterruptible sleep on a device that has stopped
- * responding — a drive unplugged without unmounting, or a dm/LVM volume over a
- * failing disk. Everything here runs in the compositor process, so a synchronous
- * call would freeze the whole desktop for the kernel's timeout. The async form
- * hands the syscall to a GIO worker thread instead.
+ * responding — a drive unplugged without unmounting, a dm/LVM volume over a
+ * failing disk, or a FUSE helper such as ntfs-3g stuck behind one. Everything
+ * here runs in the compositor process, so a synchronous call would freeze the
+ * whole desktop for the kernel's timeout. The async form hands the syscall to
+ * a GIO worker thread instead.
  *
- * Mounts that fail to stat, or report a zero size, are dropped.
+ * That thread stays blocked until the syscall returns — cancelling does not
+ * free it — and the pool is shared with the rest of the shell. So a mount gets
+ * one query at a time: while one is outstanding in `pending`, callers share it
+ * rather than block another thread.
  */
-function queryFilesystemUsage(mounts, cancellable, callback) {
-    if (mounts.length === 0) {
-        callback([]);
-        return;
-    }
+function queryMountUsage(mountPoint, pending, cancellable) {
+    let query = pending.get(mountPoint);
+    if (query)
+        return query;
 
-    // Fixed-size array so results keep the caller's (already sorted) order
-    // regardless of the order the worker threads finish in.
-    const results = new Array(mounts.length).fill(null);
-    let remaining = mounts.length;
-
-    mounts.forEach((mount, i) => {
-        Gio.File.new_for_path(mount.mountPoint).query_filesystem_info_async(
+    query = new Promise(resolve => {
+        Gio.File.new_for_path(mountPoint).query_filesystem_info_async(
             FS_USAGE_ATTRS, GLib.PRIORITY_DEFAULT, cancellable, (file, res) => {
+                pending.delete(mountPoint);
                 try {
                     const info = file.query_filesystem_info_finish(res);
 
@@ -290,27 +368,15 @@ function queryFilesystemUsage(mounts, cancellable, callback) {
                     const used = info.get_attribute_uint64('filesystem::used') ||
                         Math.max(0, total - free);
 
-                    if (total > 0) {
-                        results[i] = {
-                            ...mount,
-                            total,
-                            used,
-                            free,
-                            percent: (used / total) * 100,
-                        };
-                    }
+                    resolve(total > 0 ? {total, used, free} : null);
                 } catch (_e) {
-                    // Cancelled, unreadable, or a stale mount — leave it out.
+                    // Cancelled, unreadable, or a stale mount.
+                    resolve(null);
                 }
-
-                // Only the last callback reports, so the UI sees one complete
-                // set. Cancelled queries report too (each entry stays null) so
-                // an awaiting caller always resumes; it checks the cancellable
-                // itself before touching any UI.
-                if (--remaining === 0)
-                    callback(results.filter(r => r !== null));
             });
     });
+    pending.set(mountPoint, query);
+    return query;
 }
 
 /**
@@ -345,6 +411,14 @@ function tempThresholdClass(tempC) {
     if (tempC >= 65)
         return 'warning';
     return 'normal';
+}
+
+/**
+ * Whether a sensor reading is fit for the panel: a sensor with nothing to
+ * measure can report 0 or a nonsense value.
+ */
+function isValidTemp(reading) {
+    return reading.tempC > 0 && reading.tempC < 130;
 }
 
 function celsiusToFahrenheit(c) {
@@ -392,6 +466,12 @@ const CPU_HWMON_CHIPS = new Set(['coretemp', 'k10temp', 'zenpower']);
  */
 const GPU_HWMON_CHIPS = new Set(
     ['amdgpu', 'radeon', 'nouveau', 'i915', 'xe']);
+
+/**
+ * hwmon chips that report a drive's own temperature: NVMe controllers, and
+ * SATA drives through the drivetemp module.
+ */
+const DRIVE_HWMON_CHIPS = new Set(['nvme', 'drivetemp']);
 
 /**
  * Return true if a sensor id/name is the whole-CPU (package) sensor.
@@ -453,39 +533,91 @@ const GPU_TEMP_LABELS = ['pkg', 'package', 'edge', 'gpu', 'die', 'core'];
 const PCI_IDS_PATHS = ['/usr/share/hwdata/pci.ids', '/usr/share/misc/pci.ids'];
 
 /**
+ * How much of pci.ids is read and searched per step; see
+ * lookupPciDeviceName().
+ */
+const PCI_IDS_CHUNK_BYTES = 64 * 1024;
+
+/**
  * Look up a device's marketing name in the pci.ids database. Returns null when
- * the database is missing or the device is unknown. Only called once per GPU
- * at discovery; the database is ~1.5 MB, so it is never kept around.
+ * the database is missing, the device is unknown, or `cancellable` fired.
+ *
+ * The database is ~1.5 MB. Searching it in one piece holds the shell's main
+ * thread for ~18 ms — a dropped frame or two, at login and every unlock — so
+ * it is read and searched 64 KB at a time, returning to the main loop in
+ * between (each step takes well under a millisecond), and reading stops once
+ * the vendor's block is behind it. Nothing of it is kept.
+ */
+async function lookupPciDeviceName(vendorId, deviceId, cancellable = null) {
+    if (!vendorId || !deviceId)
+        return null;
+
+    for (const path of PCI_IDS_PATHS) {
+        let stream;
+        try {
+            stream = await Gio.File.new_for_path(path)
+                .read_async(GLib.PRIORITY_DEFAULT, cancellable);
+        } catch (_e) {
+            continue; // not at this location
+        }
+
+        // A readable database is authoritative — stop here either way.
+        try {
+            return await searchPciIds(stream, vendorId, deviceId, cancellable);
+        } catch (_e) {
+            return null; // cancelled, or the read failed
+        } finally {
+            stream.close_async(GLib.PRIORITY_DEFAULT, null).catch(() => {});
+        }
+    }
+    return null;
+}
+
+/**
+ * Search an open pci.ids stream for one device's name, or null.
  *
  * Format: vendor lines start at column 0 ("8086  Intel Corporation"), device
  * lines belong to the vendor block above them and are indented by one tab
  * ("\t9b41  CometLake-U GT2 [UHD Graphics]"). Subdevice lines use two tabs and
  * can never match a "\t<id>  " prefix.
  */
-async function lookupPciDeviceName(vendorId, deviceId) {
-    if (!vendorId || !deviceId)
-        return null;
+async function searchPciIds(stream, vendorId, deviceId, cancellable) {
+    let rest = new Uint8Array();
+    let inVendor = false;
 
-    for (const path of PCI_IDS_PATHS) {
-        const data = await readFile(path);
-        if (data === null)
-            continue;
+    for (;;) {
+        const bytes = await stream.read_bytes_async(
+            PCI_IDS_CHUNK_BYTES, GLib.PRIORITY_DEFAULT, cancellable);
+        const atEnd = bytes.get_size() === 0;
 
-        let inVendor = false;
-        for (const line of data.split('\n')) {
+        // Only complete lines are searched; a partial last line waits for
+        // the next chunk. A newline byte never occurs inside a multi-byte
+        // character, so cutting there keeps the UTF-8 intact.
+        let data = rest;
+        if (!atEnd) {
+            const chunk = bytes.toArray();
+            data = new Uint8Array(rest.length + chunk.length);
+            data.set(rest);
+            data.set(chunk, rest.length);
+        }
+        const cut = atEnd ? data.length : data.lastIndexOf(0x0a) + 1;
+        rest = data.subarray(cut);
+
+        for (const line of DECODER.decode(data.subarray(0, cut)).split('\n')) {
             if (line.length === 0 || line.startsWith('#'))
                 continue;
             if (!line.startsWith('\t')) {
                 if (inVendor)
-                    break; // left our vendor's block
+                    return null; // left our vendor's block
                 inVendor = line.startsWith(`${vendorId}  `);
             } else if (inVendor && line.startsWith(`\t${deviceId}  `)) {
                 return line.slice(deviceId.length + 3).trim();
             }
         }
-        return null; // a readable database is authoritative — stop here
+
+        if (atEnd)
+            return null;
     }
-    return null;
 }
 
 /**
@@ -542,10 +674,18 @@ class SystemMetrics {
         this._mounts = null;
         this._externalCache = new Map();
         this._gpus = null;
+        this._gpuNames = new Map(); // "vendor:device" PCI id → display name
 
         // Previous idle-residency sample per GPU, for drivers (i915/xe) that
         // expose cumulative sleep time instead of a busy percentage.
         this._prevGpuIdle = new Map();
+
+        // Disk usage queries still outstanding, by mount point; each mount's
+        // last reading, shown while its drive is not responding; and the
+        // deadline timers of refreshes in progress.
+        this._pendingFsQueries = new Map();
+        this._lastUsage = new Map();
+        this._diskDeadlines = new Set();
 
         // /proc/mounts only changes when something is (un)mounted.
         this._mountMonitor = GioUnix.MountMonitor.get();
@@ -556,8 +696,10 @@ class SystemMetrics {
     _invalidateMounts() {
         this._mounts = null;
         // A device node can be reused by different hardware across a replug,
-        // so the removable flag is only valid for the current mount set.
+        // so the removable flag is only valid for the current mount set —
+        // and so is a mount's last reading.
         this._externalCache.clear();
+        this._lastUsage.clear();
     }
 
     /**
@@ -802,15 +944,73 @@ class SystemMetrics {
      *
      * External (removable/USB) disks are only included when includeExternal is
      * true. Sizes are in bytes. Resolves to [{ name, mountPoint, device,
-     * total, used, free, percent, isExternal }]; mounts that cannot be stat'd
-     * are omitted (all of them, if `cancellable` fires mid-query).
+     * isExternal, total, used, free, percent, responding }]; mounts that
+     * cannot be stat'd are omitted.
+     *
+     * Each mount has FS_QUERY_DEADLINE_MS to answer. One that misses it is
+     * reported from its last reading (zeros if it has none) with `responding`
+     * false, so one stuck drive cannot hold back the rest.
      */
     async getDiskUsage(includeExternal, cancellable) {
         const mounts = (await this._getMounts())
             .filter(m => includeExternal || !m.isExternal);
-        return new Promise(resolve => {
-            queryFilesystemUsage(mounts, cancellable, resolve);
+
+        // Removed as soon as every mount has answered, or by destroy().
+        let timer = null;
+        const deadline = new Promise(resolve => {
+            timer = {
+                resolve,
+                id: GLib.timeout_add(GLib.PRIORITY_DEFAULT,
+                    FS_QUERY_DEADLINE_MS, () => {
+                        this._diskDeadlines.delete(timer);
+                        resolve(TIMED_OUT);
+                        return GLib.SOURCE_REMOVE;
+                    }),
+            };
         });
+        this._diskDeadlines.add(timer);
+
+        const usages = await Promise.all(mounts.map(mount => Promise.race([
+            queryMountUsage(mount.mountPoint, this._pendingFsQueries, cancellable),
+            deadline,
+        ])));
+        this._endDiskDeadline(timer);
+
+        // Torn down while waiting: keep nothing past destroy().
+        if (cancellable?.is_cancelled())
+            return [];
+
+        const disks = [];
+        mounts.forEach((mount, i) => {
+            let usage = usages[i];
+            const responding = usage !== TIMED_OUT;
+            if (responding) {
+                if (usage === null)
+                    return; // unreadable, or zero-sized
+                this._lastUsage.set(mount.mountPoint, usage);
+            } else {
+                usage = this._lastUsage.get(mount.mountPoint) ??
+                    {total: 0, used: 0, free: 0};
+            }
+            disks.push({
+                ...mount,
+                ...usage,
+                percent: usage.total > 0 ? (usage.used / usage.total) * 100 : 0,
+                responding,
+            });
+        });
+        return disks;
+    }
+
+    /**
+     * Remove a refresh's deadline timer early, letting a refresh still
+     * awaiting it go on.
+     */
+    _endDiskDeadline(timer) {
+        if (!this._diskDeadlines.delete(timer))
+            return;
+        GLib.Source.remove(timer.id);
+        timer.resolve(TIMED_OUT);
     }
 
     /**
@@ -831,6 +1031,41 @@ class SystemMetrics {
     }
 
     /**
+     * Whether a drive temperature chip belongs to an external drive, whose
+     * temperature is then neither shown nor read.
+     *
+     * A drive counts as external when the disk card badges every filesystem
+     * mounted from it EXT, or when it is attached over USB, an SD card slot
+     * or a hot-plug port such as Thunderbolt — the last also covering a drive
+     * with nothing mounted.
+     */
+    async _isExternalDrive(hwmonBase) {
+        // NVMe namespaces sit under their controller, as nvme0n1 — or, on a
+        // multipath-capable drive, as nvme0c0n1, the hidden path of the
+        // nvme0n1 block device. SCSI disks list theirs under block/.
+        const device = `${hwmonBase}/device`;
+        const disks = [
+            ...listSysDir(device)
+                .filter(name => /^nvme\d+(c\d+)?n\d+$/.test(name))
+                .map(name => name.replace(/c\d+n/, 'n')),
+            ...listSysDir(`${device}/block`),
+        ];
+
+        const mounts = (await this._getMounts())
+            .filter(m => disks.includes(blockDiskName(m.device)));
+        if (mounts.length > 0 && mounts.every(m => m.isExternal))
+            return true;
+
+        for (const disk of disks) {
+            // No mount point: judged by how the disk is attached alone.
+            if (await isExternalDisk(`/dev/${disk}`, '') ||
+                await isOnRemovablePort(disk))
+                return true;
+        }
+        return false;
+    }
+
+    /**
      * Locate the significant temperature sensors under /sys/class/thermal
      * and /sys/class/hwmon. Returns [{ path, name (display), isCpu }].
      *
@@ -840,26 +1075,25 @@ class SystemMetrics {
      * motherboard) there while k10temp — the actual CPU — lives under hwmon.
      *
      * Only sensors matching a curated component list — CPU, GPU, chipset,
-     * motherboard, drives, Wi‑Fi — are kept, one per component, so a refresh
-     * reads a handful of files instead of every core, CCD and ACPI zone the
-     * machine exposes. Trees mirroring the same component (x86_pkg_temp vs
-     * coretemp) resolve to whichever was found first. A machine where nothing
-     * matches keeps its readable thermal zones rather than an empty card.
+     * motherboard, internal drives, Wi‑Fi — are kept, one per component, so
+     * a refresh reads a handful of files instead of every core, CCD and ACPI
+     * zone the machine exposes. Trees mirroring the same component
+     * (x86_pkg_temp vs coretemp) resolve to whichever was found first. A
+     * machine where nothing matches keeps its readable thermal zones rather
+     * than an empty card.
      */
     async _discoverTempSensors() {
         const sensors = [];
 
         // One sensor per component; drives and GPUs can be several distinct
-        // devices, so they dedupe per chip instead.
+        // devices, so they dedupe per chip instead. A temperature is only
+        // read for a component nothing represents yet: that read can run an
+        // ACPI method or send a device a command, where a type or label is a
+        // static string.
         const seen = new Set();
-        const takeSensor = (category, basePath) => {
-            const key = category === 'drive' || category === 'gpu'
+        const sensorKey = (category, basePath) =>
+            category === 'drive' || category === 'gpu'
                 ? `${category}:${basePath}` : category;
-            if (seen.has(key))
-                return false;
-            seen.add(key);
-            return true;
-        };
 
         // Repeated components get a numeric suffix ("NVMe SSD 2") so the
         // display layer, which collapses duplicate names, keeps them apart.
@@ -878,9 +1112,6 @@ class SystemMetrics {
                 continue;
 
             const basePath = `/sys/class/thermal/${name}`;
-            if ((await readFile(`${basePath}/temp`)) === null)
-                continue;
-
             const typeStr = await readFile(`${basePath}/type`);
             const raw = typeStr ? typeStr.trim() : name;
 
@@ -889,8 +1120,10 @@ class SystemMetrics {
                 fallbackZones.push({basePath, raw});
                 continue;
             }
-            if (!takeSensor(category, basePath))
+            const key = sensorKey(category, basePath);
+            if (seen.has(key) || (await readFile(`${basePath}/temp`)) === null)
                 continue;
+            seen.add(key);
 
             sensors.push({
                 path: `${basePath}/temp`,
@@ -904,12 +1137,17 @@ class SystemMetrics {
             const nameStr = await readFile(`${basePath}/name`);
             const chipName = nameStr ? nameStr.trim() : hwmonName;
 
-            // hwmon numbering is not contiguous — a chip may expose temp2_input
-            // and temp3_input with no temp1_input — so skip gaps rather than
-            // stopping at the first one.
-            for (let i = 1; i <= 16; i++) {
+            // Checked before any channel is probed: reading a drive's
+            // temperature sends the drive itself a command.
+            if (DRIVE_HWMON_CHIPS.has(chipName) &&
+                await this._isExternalDrive(basePath))
+                continue;
+
+            const files = listSysDir(basePath);
+            for (const i of tempChannels(files)) {
                 const path = `${basePath}/temp${i}_input`;
-                const labelStr = await readFile(`${basePath}/temp${i}_label`);
+                const labelStr = files.includes(`temp${i}_label`)
+                    ? await readFile(`${basePath}/temp${i}_label`) : null;
 
                 // The channel label decides where a labelled chip like
                 // coretemp is concerned (package vs per-core); the chip name
@@ -925,10 +1163,10 @@ class SystemMetrics {
 
                 // Probe readability before claiming the component, so a dead
                 // channel does not block a working sibling from representing it.
-                if ((await readFile(path)) === null)
+                const key = sensorKey(category, basePath);
+                if (seen.has(key) || (await readFile(path)) === null)
                     continue;
-                if (!takeSensor(category, basePath))
-                    continue;
+                seen.add(key);
 
                 sensors.push({
                     path,
@@ -942,6 +1180,8 @@ class SystemMetrics {
         // classifier does not know. Readable thermal zones beat an empty card.
         if (sensors.length === 0) {
             for (const {basePath, raw} of fallbackZones) {
+                if ((await readFile(`${basePath}/temp`)) === null)
+                    continue;
                 sensors.push({
                     path: `${basePath}/temp`,
                     name: displayName(raw),
@@ -954,16 +1194,37 @@ class SystemMetrics {
     }
 
     /**
-     * Read every discovered sensor. Sensor paths are discovered once and
+     * Read the discovered sensors. Sensor paths are discovered once and
      * cached; only the temp files themselves are read on each refresh.
+     *
+     * With `cpuOnly`, just the CPU sensor is read, as that is all the panel
+     * shows — unless it gives no valid reading, in which case the panel falls
+     * back to the hottest sensor and every sensor is read after all. The rest
+     * are not free to read: an NVMe temperature is a command to the drive
+     * (2–3 ms), and acpitz runs an ACPI firmware method.
+     *
      * Returns [{ name (raw), tempC, isCpu }] sorted by temperature descending.
      */
-    async getTemperatures() {
+    async getTemperatures(cpuOnly = false) {
         // Cached as a promise so refreshes that overlap the first discovery
         // share one sysfs scan instead of each starting their own.
         this._tempSensors ??= this._discoverTempSensors();
         const sensors = await this._tempSensors;
 
+        if (cpuOnly) {
+            const cpu = await this._readTempSensors(
+                sensors.filter(sensor => sensor.isCpu));
+            if (cpu.some(isValidTemp))
+                return cpu;
+        }
+        return this._readTempSensors(sensors);
+    }
+
+    /**
+     * Read the given sensors. Returns [{ name (raw), tempC, isCpu }] sorted
+     * by temperature descending.
+     */
+    async _readTempSensors(sensors) {
         // One parallel fan-out: every sensor is its own GIO task, so the
         // refresh pays a single worker-thread round trip instead of one per
         // sensor. readFile never rejects, so neither can this.
@@ -976,9 +1237,12 @@ class SystemMetrics {
         sensors.forEach((sensor, i) => {
             const tempStr = readings[i];
             if (tempStr === null) {
-                // Sensor went away (module unloaded, device unplugged) —
+                // A sensor still listed in sysfs failed in passing — a device
+                // mid-reset, say — so only this reading is skipped. One gone
+                // from sysfs went away (module unloaded, device unplugged):
                 // rebuild the path list on the next refresh.
-                stale = true;
+                if (!GLib.file_test(sensor.path, GLib.FileTest.EXISTS))
+                    stale = true;
                 return;
             }
 
@@ -1006,7 +1270,7 @@ class SystemMetrics {
      * Returns { tempC, name } or null.
      */
     getOverallTemperature(temps) {
-        const valid = temps.filter(t => t.tempC > 0 && t.tempC < 130);
+        const valid = temps.filter(isValidTemp);
         if (valid.length === 0)
             return null;
 
@@ -1047,29 +1311,46 @@ class SystemMetrics {
      * lower channel.
      */
     async _findGpuTempPath(hwmonBase) {
-        let bestPath = null;
-        let bestRank = Infinity;
-
-        for (let i = 1; i <= 8; i++) {
-            const path = `${hwmonBase}/temp${i}_input`;
-            if ((await readFile(path)) === null)
-                continue;
-
-            const labelStr = await readFile(`${hwmonBase}/temp${i}_label`);
+        // Rank by label first — a static string — then probe in rank order,
+        // so normally only the winning channel's temperature is read.
+        const files = listSysDir(hwmonBase);
+        const channels = [];
+        for (const i of tempChannels(files)) {
+            const labelStr = files.includes(`temp${i}_label`)
+                ? await readFile(`${hwmonBase}/temp${i}_label`) : null;
             const label = labelStr ? labelStr.trim().toLowerCase() : '';
             const known = GPU_TEMP_LABELS.indexOf(label);
-            const rank = known !== -1 ? known
-                : GPU_TEMP_LABELS.length + (label === '' ? 0 : 1);
-
-            if (rank < bestRank) {
-                bestRank = rank;
-                bestPath = path;
-                if (rank === 0)
-                    break; // nothing can outrank the package sensor
-            }
+            channels.push({
+                path: `${hwmonBase}/temp${i}_input`,
+                rank: known !== -1 ? known
+                    : GPU_TEMP_LABELS.length + (label === '' ? 0 : 1),
+            });
         }
 
-        return bestPath;
+        // A stable sort, so ties keep the lower channel first.
+        channels.sort((a, b) => a.rank - b.rank);
+        for (const {path} of channels) {
+            if ((await readFile(path)) !== null)
+                return path;
+        }
+        return null;
+    }
+
+    /**
+     * A GPU's display name, looked up in pci.ids once per device id and
+     * remembered, so rediscovery — an eGPU replugged, a driver hiccup — and a
+     * second card of the same model do not search the database again.
+     */
+    async _gpuName(vendorId, deviceId, vendor, cancellable) {
+        const key = `${vendorId}:${deviceId}`;
+        let name = this._gpuNames.get(key);
+        if (name === undefined) {
+            name = friendlyGpuName(
+                await lookupPciDeviceName(vendorId, deviceId, cancellable),
+                vendor);
+            this._gpuNames.set(key, name);
+        }
+        return name;
     }
 
     /**
@@ -1089,7 +1370,7 @@ class SystemMetrics {
      *    come from one `nvidia-smi` query per refresh when the tool exists.
      *  - nouveau exposes only a hwmon temperature.
      */
-    async _discoverGpus() {
+    async _discoverGpus(cancellable) {
         const gpus = [];
         const nvidiaSmi = GLib.find_program_in_path('nvidia-smi') !== null;
 
@@ -1132,8 +1413,7 @@ class SystemMetrics {
                 driver,
                 vendor,
                 integrated,
-                name: friendlyGpuName(
-                    await lookupPciDeviceName(vendorId, deviceId), vendor),
+                name: await this._gpuName(vendorId, deviceId, vendor, cancellable),
                 busyPath: null,       // reads a 0–100 percentage directly
                 idlePath: null,       // reads cumulative idle milliseconds
                 vramUsedPath: null,   // bytes
@@ -1241,7 +1521,7 @@ class SystemMetrics {
      * two reads.
      */
     async getGpuUsage(cancellable = null) {
-        this._gpus ??= this._discoverGpus();
+        this._gpus ??= this._discoverGpus(cancellable);
         const gpus = await this._gpus;
 
         const now = GLib.get_monotonic_time();
@@ -1411,6 +1691,14 @@ class SystemMetrics {
     destroy() {
         this._mountMonitor?.disconnectObject(this);
         this._mountMonitor = null;
+
+        for (const timer of this._diskDeadlines)
+            this._endDiskDeadline(timer);
+        // A query stuck on a drive holds its worker thread past disable()
+        // regardless; forgetting it here means the next enable() asks again.
+        this._pendingFsQueries.clear();
+        this._lastUsage.clear();
+        this._gpuNames.clear();
     }
 }
 
@@ -1853,7 +2141,9 @@ class DiskCardItem extends St.BoxLayout {
     }
 
     update(disks, overall) {
-        if (disks.length > 0) {
+        // A drive not responding since before its first reading adds
+        // nothing to the total, so the total can be empty with rows shown.
+        if (overall.total > 0) {
             this.valueLabel.text = `${overall.percent.toFixed(1)}%`;
             this.overallLabel.text =
                 `Total · ${formatBytes(overall.used / 1024)} / ${formatBytes(overall.total / 1024)}`;
@@ -1875,9 +2165,12 @@ class DiskCardItem extends St.BoxLayout {
             const row = this._diskRows[i];
             row.name.text = disk.name;
             row.badge.visible = disk.isExternal;
-            row.percent.text = `${Math.round(disk.percent)}%`;
-            row.detail.text =
-                `${formatBytes(disk.used / 1024)} / ${formatBytes(disk.total / 1024)} · ${formatBytes(disk.free / 1024)} free`;
+            row.percent.text = disk.total > 0 ? `${Math.round(disk.percent)}%` : '—';
+            // A drive that stopped answering keeps its last reading on the
+            // bar; the detail line is where it says so.
+            row.detail.text = disk.responding
+                ? `${formatBytes(disk.used / 1024)} / ${formatBytes(disk.total / 1024)} · ${formatBytes(disk.free / 1024)} free`
+                : 'Not responding';
             setBarWidth(row.barFill, disk.percent, 220);
             setStateClass(row.barFill, 'smp-progress', thresholdClass(disk.percent));
         });
@@ -2300,13 +2593,29 @@ class SystemMonitorIndicator extends PanelMenu.Button {
             'notify::color-scheme', () => this._syncStyleVariant(), this);
         this._syncStyleVariant();
 
+        // The top bar hides while a fullscreen app covers its monitor, and
+        // nothing on it is read meanwhile; catch up as soon as it is back.
+        this._missedRefresh = false;
+        this.connectObject('notify::mapped', () => {
+            if (this.mapped && this._missedRefresh) {
+                this._missedRefresh = false;
+                this._seedAndRefresh();
+            }
+        }, this);
+
         // ── Initial settings + seed + timer ──
         this._applySettings();
         this._startTimer();
+        this._seedAndRefresh();
+    }
 
-        // Seed the CPU, GPU and network deltas, then do the first real
-        // refresh shortly after — a delta needs two samples. Results are
-        // discarded; the timed refresh reports any real failure.
+    /**
+     * Seed the CPU, GPU and network deltas, then do a real refresh shortly
+     * after — a delta needs two samples, and a stale first one would report
+     * an average over the whole gap. Results are discarded; the refresh
+     * reports any real failure.
+     */
+    _seedAndRefresh() {
         this._metrics.getCpuUsage().catch(() => {});
         this._metrics.getNetworkSpeed().catch(() => {});
         // GPU display is off by default; don't touch its sysfs tree (or spawn
@@ -2314,6 +2623,9 @@ class SystemMonitorIndicator extends PanelMenu.Button {
         if (this._settings.get_boolean('show-gpu') ||
             this._settings.get_boolean('show-gpu-card'))
             this._metrics.getGpuUsage(this._cancellable).catch(() => {});
+
+        if (this._seedTimeoutId)
+            GLib.source_remove(this._seedTimeoutId);
         this._seedTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 700, () => {
             this._seedTimeoutId = null;
             this._refreshAll();
@@ -2508,7 +2820,9 @@ class SystemMonitorIndicator extends PanelMenu.Button {
     }
 
     _isVisible(box, card) {
-        return box.container.visible || (card.visible && this.menu.isOpen);
+        // Not mapped while a fullscreen app hides the top bar.
+        return (box.container.visible && this.mapped) ||
+            (card.visible && this.menu.isOpen);
     }
 
     _shouldUpdateCard(card) {
@@ -2526,6 +2840,9 @@ class SystemMonitorIndicator extends PanelMenu.Button {
             ['temperature', this._tempBox, this._tempCard, () => this._refreshTemperature()],
             ['network', this._netBox, this._netCard, () => this._refreshNetwork()],
         ];
+
+        if (!this.mapped)
+            this._missedRefresh = true;
 
         for (const [name, box, card, refresh] of metrics) {
             if (!this._isVisible(box, card))
@@ -2612,9 +2929,9 @@ class SystemMonitorIndicator extends PanelMenu.Button {
     }
 
     async _refreshDisk() {
-        // statfs runs on a worker thread, so a tick can land while the previous
-        // set of queries is still outstanding on a slow mount. Skip it rather
-        // than pile up overlapping queries.
+        // A refresh can wait up to FS_QUERY_DEADLINE_MS on a slow mount, so
+        // a manual refresh or the menu opening can land while one is still
+        // running. Skip it rather than run two side by side.
         if (this._diskQueryPending)
             return;
 
@@ -2629,7 +2946,7 @@ class SystemMonitorIndicator extends PanelMenu.Button {
 
             const overall = this._metrics.getOverallDiskUsage(disks);
 
-            if (disks.length > 0) {
+            if (overall.total > 0) {
                 const percent = Math.round(overall.percent);
                 this._diskBox.label.text = `${percent}%`;
                 setStateClass(this._diskBox.label, 'smp-label', thresholdClass(percent));
@@ -2648,7 +2965,12 @@ class SystemMonitorIndicator extends PanelMenu.Button {
     async _refreshTemperature() {
         const isFahrenheit = this._settings.get_string('temperature-unit') === 'fahrenheit';
 
-        const temps = await this._metrics.getTemperatures();
+        // Only the card needs more than the CPU sensor. Decided before the
+        // read: should the menu open meanwhile, its own refresh fills the
+        // card, which a CPU-only result must not then overwrite.
+        const forCard = this._shouldUpdateCard(this._tempCard);
+
+        const temps = await this._metrics.getTemperatures(!forCard);
         if (!this._cancellable || this._cancellable.is_cancelled())
             return;
 
@@ -2664,7 +2986,7 @@ class SystemMonitorIndicator extends PanelMenu.Button {
             setStateClass(this._tempBox.label, 'smp-label', thresholdClass(0));
         }
 
-        if (this._shouldUpdateCard(this._tempCard))
+        if (forCard && this._shouldUpdateCard(this._tempCard))
             this._tempCard.update(temps, overall, isFahrenheit);
     }
 
@@ -2702,6 +3024,7 @@ class SystemMonitorIndicator extends PanelMenu.Button {
             this._queuedRefreshId = null;
         }
 
+        this.disconnectObject(this);
         this.menu.disconnectObject(this);
         this._settings.disconnectObject(this);
         St.Settings.get().disconnectObject(this);

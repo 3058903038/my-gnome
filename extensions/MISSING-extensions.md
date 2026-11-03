@@ -1,6 +1,6 @@
 # 未备份的扩展（幽灵扩展）
 
-以下 8 个扩展在当前系统的 dconf `enabled-extensions` 中标记为「已启用」，
+以下 10 个扩展在当前系统的 dconf `enabled-extensions` 中标记为「已启用」，
 但全盘搜索 `/usr/share/gnome-shell/extensions/`、`~/.local/share/gnome-shell/extensions/`、`~/.local/share/flatpak/`
 以及 `pacman -Ql` 均找不到其文件，属于 **残留的启用记录**，实际并未运行。
 
@@ -19,11 +19,18 @@
 | 6 | `system-monitor-next@paradoxxx.zero.gmail.com` | 顶栏系统监视器（CPU/内存/网络） |
 | 7 | `battery-usage-wattmeter@halfmexicanhalfamazing.gmail.com` | 顶栏显示电池功率（瓦特） |
 | 8 | `kimpanel@kde.org` | KDE 输入法面板支持（配合 kimpanel 使用） |
+| 9 | `preserve-battery-health@marcosdalvarez.org` | 电池健康保护（限制充电区间） |
+| 10 | `tweaks-system-menu@extensions.gnome-shell.fifi.org` | 在系统菜单中加入「优化」快捷入口 |
 
 ## 如何补装
 
 新系统还原后，打开 **Extension Manager**（已在 restore.sh 中安装），
 逐个搜索上面的扩展名安装即可；装好后会自动处于启用状态（dconf 已记录）。
 
-> 注意：以上扩展并非「备份遗漏」，而是当前系统本就不存在其文件。
-> 已实际备份并会还原的是另外 17 个扩展，见 `extensions/enabled.txt` 与 `extensions/files/`。
+## 本机自建扩展
+
+`appgrid-tooltip@ailun.local` 是本机自己写的扩展（非商店来源），
+文件已完整备份在 `extensions/files/appgrid-tooltip@ailun.local/`，还原时会自动装上并启用。
+
+> 注意：上面 10 个幽灵扩展并非「备份遗漏」，而是当前系统本就不存在其文件。
+> 已实际备份并会还原的是另外 19 个扩展，见 `extensions/enabled.txt` 与 `extensions/files/`。

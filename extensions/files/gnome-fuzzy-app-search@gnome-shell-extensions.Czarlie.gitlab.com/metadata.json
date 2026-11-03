@@ -20,5 +20,6 @@
   ],
   "url": "https://gitlab.com/czarlie/gnome-fuzzy-app-search",
   "uuid": "gnome-fuzzy-app-search@gnome-shell-extensions.Czarlie.gitlab.com",
-  "version": 30
+  "version": 31,
+  "version-name": "5.1.1"
 }

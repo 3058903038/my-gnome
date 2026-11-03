@@ -1,4 +1,8 @@
 [http]
-	proxy = http://127.0.0.1:7890
-[https]
-	proxy = http://127.0.0.1:7890
+	proxy = http://127.0.0.1:7897
+[http "https://gitee.com/"]
+	proxy = 
+[credential]
+	helper = store
+[http "https://aur.archlinux.org/"]
+	proxy = 

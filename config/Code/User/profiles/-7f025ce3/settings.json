@@ -39,10 +39,10 @@
     "jupyter.themeMatplotlibPlots": true,
     "python.analysis.autoImportCompletions": true,
     "python.autoComplete.extraPaths": [],
-    "translation.baidu.appKey": "cxHWze9O692v7FH5Ben8",
-    "translation.baidu.appId": "20251108002493280",
-    "translation.youdao.appKey": "gFVLzCTwM2BMQJzVeNyU4ukv8USpRCgc",
-    "translation.youdao.appId": "25c6890d617d5338",
+    "translation.baidu.appKey": "",
+    "translation.baidu.appId": "",
+    "translation.youdao.appKey": "",
+    "translation.youdao.appId": "",
     "better-comments.tags": [
         {
             "tag": "!",

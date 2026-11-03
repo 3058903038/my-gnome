@@ -1,4 +1,5 @@
 add-to-desktop@tommimon.github.com
+appgrid-tooltip@ailun.local
 appindicatorsupport@rgcjonas.gmail.com
 apps-menu@gnome-shell-extensions.gcampax.github.com
 Battery-Health-Charging@maniacx.github.com

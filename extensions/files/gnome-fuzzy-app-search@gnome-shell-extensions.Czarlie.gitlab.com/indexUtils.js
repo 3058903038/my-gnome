@@ -6,7 +6,7 @@ import Gio from "gi://Gio";
 
 const getCacheDir = () => {
     const cacheDir = `${GLib.get_user_cache_dir()}/${metadata.uuid}/${
-        metadata.version
+        metadata["version-name"]
     }`;
     GLib.mkdir_with_parents(`${cacheDir}`, 0o774);
     return cacheDir;

@@ -38,8 +38,15 @@ export const OnHoverMenu = GObject.registerClass({
 
         this._menu.connectObject(
             'open-state-changed', (menu, open) => {
-                if (!open)
+                if (open) {
+                    if (!Main.panel.menuManager.activeMenu)
+                        Main.panel.menuManager.activeMenu = menu;
+                } else {
+                    if (Main.panel.menuManager.activeMenu === menu)
+                        Main.panel.menuManager.activeMenu = null;
+
                     this._connectHoverSignals();
+                }
             },
             this
         );
@@ -93,6 +100,9 @@ export const OnHoverMenu = GObject.registerClass({
             this._hoverTimeoutId = null;
         }
         this._disconnectHoverSignals();
+
+        if (this._menu && Main.panel.menuManager.activeMenu === this._menu)
+            Main.panel.menuManager.activeMenu = null;
 
         if (this._menuManager && this._menu)
             this._menuManager.removeMenu(this._menu);

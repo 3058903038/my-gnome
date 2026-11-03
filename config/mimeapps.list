@@ -11,8 +11,13 @@ x-scheme-handler/dsh=deepseek-ai-dsh-desktop.desktop
 text/markdown=typora.desktop
 x-scheme-handler/clash-verge=clash-verge.desktop;
 x-scheme-handler/jetbrains=jetbrainsd.desktop
+x-scheme-handler/codex=chatgpt.desktop
+x-scheme-handler/ccswitch=cc-switch-handler.desktop
+x-scheme-handler/bilipc=bilibili.desktop
+text/x-maven+xml=visual-studio-code-electron.desktop
 
 [Added Associations]
 text/markdown=typora.desktop;
 x-scheme-handler/clash=clash-verge.desktop;
 x-scheme-handler/clash-verge=clash-verge.desktop;
+text/x-maven+xml=visual-studio-code-electron.desktop;

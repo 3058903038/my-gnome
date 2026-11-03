@@ -4,6 +4,7 @@ import GObject from 'gi://GObject';
 import {getBluezDeviceProxy} from './bluezDeviceProxy.js';
 import {DbusClient} from './dbusClient.js';
 import {isBudsLink, DeviceTypeBudsLink} from './devices/budslink/companionDevices.js';
+import {isGfps, DeviceTypeGfpsLink} from './devices/budslink/gfpsDevice.js';
 import {GattBasDevices, isGattBas, DeviceTypeGattBas} from './devices/gattBas/gattBasDevices.js';
 
 export const EnhancedDeviceSupportManager = GObject.registerClass({
@@ -39,7 +40,7 @@ export const EnhancedDeviceSupportManager = GObject.registerClass({
                 dataHandler: compdev ? compdev.dataHandler : null,
                 deviceIcon: icon,
                 enhancedDevice: null,
-                alias: compdev ? compdev.dataHandler : alias,
+                alias: compdev ? compdev.alias : alias,
             };
             this._deviceMap.set(path, deviceProps);
         } else {
@@ -50,8 +51,6 @@ export const EnhancedDeviceSupportManager = GObject.registerClass({
         }
 
         const bluezDeviceProxy = getBluezDeviceProxy(path);
-        const uuids = bluezDeviceProxy.UUIDs ?? [];
-        const modalias = bluezDeviceProxy.Modalias ?? '';
 
         const deviceModes = [
             {
@@ -64,13 +63,18 @@ export const EnhancedDeviceSupportManager = GObject.registerClass({
                 check: isGattBas,
                 type: DeviceTypeGattBas,
             },
+            {
+                enabled: this._toggle.companionEnabled && this._toggle.gfpsEnabled,
+                check: isGfps,
+                type: DeviceTypeGfpsLink,
+            },
         ];
 
         for (const mode of deviceModes) {
             if (!mode.enabled)
                 continue;
 
-            const supported = mode.check(uuids, modalias);
+            const supported = mode.check(bluezDeviceProxy);
 
             if (supported) {
                 deviceProps.type = mode.type;
@@ -84,7 +88,8 @@ export const EnhancedDeviceSupportManager = GObject.registerClass({
     updateEnhancedDevicesInstance() {
         for (const [path, deviceProps] of this._deviceMap.entries()) {
             if (deviceProps.type && deviceProps.connected && !deviceProps.enhancedDevice) {
-                if (deviceProps.type === DeviceTypeBudsLink) {
+                if (deviceProps.type === DeviceTypeBudsLink ||
+                        deviceProps.type === DeviceTypeGfpsLink) {
                     if (!this._dbusClient)
                         this._initializeDbus();
                 } else if (deviceProps.type === DeviceTypeGattBas) {

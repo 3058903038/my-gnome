@@ -27,4 +27,24 @@ The search query is split up into [n-grams](https://en.wikipedia.org/wiki/N-gram
 
 ## Where is this project headed?
 
-Although [the extension this is forked from](https://github.com/fffilo/gnome-fuzzy-search) did have [plans](https://github.com/fffilo/gnome-fuzzy-search/issues/1#issuecomment-445189640) to extend more search providers, other providers currently aren't being actively developed by me, @Czarlie, but I am not entirely ruling it out. 
+I don't have much time between lectures at the moment so I'll probably take
+quite a while do work on any of the feature requests that people have given me,
+but doing file indexing sounds fun so I might at some point get around to doing
+that. At some point GNOME might implement fuzzy search natively, making my extension
+obsolete. Until then, I'll try my best to at least be on top of GNOME version
+updates to maintain what's currently in here.
+
+Features I am considering adding at some point:
+- Fuzzy search in files via/extending the preexisting `tracker3` `localsearch`
+- Additional weighting based on app usage (that GNOME can already track)
+- Configurable scoring weights for advanced users (though this makes my maintenance harder)
+- For users with multiple keyboard layouts, search transposed to the other layout
+  (This involves quite a lot of research on my part into input systems so perhaps it's not worth it)
+- Search through window titles (Since there isn't already a search provider for this, perhaps
+  I would prefer leaving this up to someone else to implement in their own extension with or without
+  fuzzy matching; [WSP](https://extensions.gnome.org/extension/6730/wsp-windows-search-provider/)
+  implements window search with a different interpretation of "fuzzy")
+
+Some users may be glad to learn that I will never use LLMs to implement any of this,
+even if it means this extension's features will stay fairly stagnant. Merge requests
+are welcome but I would request those to be hand-written as well.

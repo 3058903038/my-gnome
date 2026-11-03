@@ -1,3 +1,5 @@
+bilibili-bin
+claude-code
 deepseek-harness-desktop
 gdm-settings
 gnome-shell-extension-just-perfection-desktop
@@ -6,6 +8,8 @@ intellij-idea-ultimate-edition
 linuxqq
 opencode-beta
 pycharm
-typora-free-bin
+ttf-wps-fonts
 visual-studio-code-electron-bin
 wechat-bin
+wps-office-cn
+wps-office-mui-zh-cn

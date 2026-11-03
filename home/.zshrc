@@ -118,3 +118,7 @@ zstyle ':completion:*' format 'Completing %d'
 
 # 6. 加载语法高亮（必须放在所有命令最后）
 source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh 2>/dev/null
+
+# --- Java / Maven ---
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
+export PATH="$HOME/developer/apache-maven-3.10.0/bin:$PATH"

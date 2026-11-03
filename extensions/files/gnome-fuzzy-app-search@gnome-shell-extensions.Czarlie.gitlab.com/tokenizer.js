@@ -23,7 +23,8 @@
  * @return {WeightedToken[]} An array of all relevant tokens that value contains
  */
 
-const NONWORD_RE = /\W/g;
+// \W in JS only matches ASCII characters, use unicode character classes instead
+const NONWORD_RE = /[^\p{Letter}\p{Number}_]/gu;
 
 const FIRST_WORD_BOOST = 1;
 const FIRST_TOKEN_BOOST = 2;
@@ -138,7 +139,8 @@ export const getStringNgramTokenizer = (
             const words = str
                 .toLowerCase()
                 .split(NONWORD_RE)
-                .filter((word) => !NONWORD_RE.test(word));
+                .filter((word) => !NONWORD_RE.test(word))
+                .filter((word) => word !== "");
 
             if (generateAcronyms) {
                 // Add acronym generated from first letter of each word to list

@@ -71,41 +71,75 @@ if [ -f "$REPO_DIR/system/pacman.conf" ]; then
   sudo pacman -Syy 2>/dev/null || true
 fi
 
-# ---------- 2. 安装软件包 ----------
-log "第 2 步：安装软件包（官方源）"
-if [ -f "$REPO_DIR/packages/pacman-explicit.txt" ]; then
-  # 过滤掉 gnome 组相关的包（已在第1步装好）
-  PKGS="$(grep -vE '^\s*#|^\s*$' "$REPO_DIR/packages/pacman-explicit.txt" | tr '\n' ' ')"
-  if [ -n "${PKGS// /}" ]; then
-    sudo pacman -S --needed --noconfirm $PKGS || err "部分官方包安装失败（继续执行）"
+# ---------- 2. 安装软件包（官方源）----------
+log "第 2 步：安装官方源软件包"
+PACMAN_PKGS=(
+  # 基础与工具
+  base base-devel git wget jq man-db man-pages nano texinfo
+  efibootmgr grub dosfstools os-prober intel-ucode linux linux-firmware
+  fastfetch dpkg asar libxml2-legacy
+  # GNOME 桌面与组件
+  gdm gnome-shell gnome-session gnome-settings-daemon gnome-control-center
+  gnome-backgrounds gnome-menus gnome-keyring gnome-tweaks gnome-tour
+  gnome-calculator gnome-calendar gnome-characters gnome-clocks gnome-contacts
+  gnome-color-manager gnome-connections gnome-console gnome-disk-utility
+  gnome-font-viewer gnome-logs gnome-maps gnome-music gnome-remote-desktop
+  gnome-software gnome-system-monitor gnome-text-editor gnome-user-docs
+  gnome-user-share gnome-weather baobab decibels epiphany loupe papers
+  showtime simple-scan snapshot sushi yelp
+  # GNOME 文件系统 / 扩展 / 缩略图
+  gvfs gvfs-afc gvfs-dnssd gvfs-goa gvfs-gphoto2 gvfs-mtp gvfs-nfs
+  gvfs-onedrive gvfs-smb gvfs-wsdd grilo-plugins gst-thumbnailers rygel
+  malcontent nautilus extension-manager gnome-shell-extension-appindicator
+  xdg-desktop-portal-gnome xdg-user-dirs-gtk
+  # 主题 / 截图 / 字体
+  sassc flameshot grim wl-clipboard noto-fonts-cjk wqy-zenhei orca tecla
+  # 网络 / 电源
+  networkmanager power-profiles-daemon tlp tlp-rdw tlpui
+  # 输入法
+  ibus-rime librime rime-ice-git
+  # 终端 / shell
+  zsh zsh-autosuggestions zsh-completions zsh-syntax-highlighting
+  # 开发与其他
+  neovim npm jdk21-openjdk libayatana-indicator localsend obsidian timeshift
+)
+sudo pacman -S --needed --noconfirm "${PACMAN_PKGS[@]}" \
+  || err "部分官方包安装失败（继续执行）"
+
+# ---------- 3. 安装 AUR 包 ----------
+log "第 3 步：安装 AUR 包"
+AUR_PKGS=(
+  # 来自 AUR（yay/paru 拉取）
+  bilibili-bin claude-code
+  deepseek-harness-desktop gdm-settings
+  gnome-shell-extension-just-perfection-desktop google-chrome
+  intellij-idea-ultimate-edition linuxqq opencode-beta pycharm
+  visual-studio-code-electron-bin wechat-bin
+  ttf-wps-fonts
+  wps-office-cn wps-office-mui-zh-cn
+  # 来自 archlinuxcn 源（AUR 助手会自动识别）
+  archlinuxcn-keyring cc-switch clash-verge-rev flclash
+)
+
+AUR_HELPER=""
+command -v yay >/dev/null 2>&1 && AUR_HELPER=yay
+[ -z "$AUR_HELPER" ] && command -v paru >/dev/null 2>&1 && AUR_HELPER=paru
+
+if [ -z "$AUR_HELPER" ]; then
+  log "未检测到 AUR 助手，从 AUR 构建 yay"
+  YAY_BUILD="$(mktemp -d)"
+  if git clone --depth=1 https://aur.archlinux.org/yay.git "$YAY_BUILD" 2>/dev/null; then
+    ( cd "$YAY_BUILD" && makepkg -si --noconfirm ) || err "yay 编译失败"
+    command -v yay >/dev/null 2>&1 && AUR_HELPER=yay
   fi
+  rm -rf "$YAY_BUILD" 2>/dev/null
 fi
 
-# ---------- 3. AUR 包 ----------
-log "第 3 步：安装 AUR 包"
-if [ -f "$REPO_DIR/packages/aur.txt" ] && [ -s "$REPO_DIR/packages/aur.txt" ]; then
-  AUR_HELPER=""
-  command -v yay >/dev/null 2>&1 && AUR_HELPER=yay
-  [ -z "$AUR_HELPER" ] && command -v paru >/dev/null 2>&1 && AUR_HELPER=paru
-
-  if [ -z "$AUR_HELPER" ]; then
-    log "安装 yay"
-    YAY_BUILD="$(mktemp -d)"
-    if git clone --depth=1 https://aur.archlinux.org/yay.git "$YAY_BUILD" 2>/dev/null; then
-      ( cd "$YAY_BUILD" && makepkg -si --noconfirm ) || err "yay 编译失败"
-      command -v yay >/dev/null 2>&1 && AUR_HELPER=yay
-    fi
-    rm -rf "$YAY_BUILD" 2>/dev/null
-  fi
-
-  if [ -n "$AUR_HELPER" ]; then
-    AURPKGS="$(grep -vE '^\s*#|^\s*$' "$REPO_DIR/packages/aur.txt" | tr '\n' ' ')"
-    if [ -n "${AURPKGS// /}" ]; then
-      $AUR_HELPER -S --needed --noconfirm $AURPKGS || err "部分 AUR 包安装失败（继续执行）"
-    fi
-  else
-    err "yay 安装失败，跳过 AUR 包"
-  fi
+if [ -n "$AUR_HELPER" ]; then
+  "$AUR_HELPER" -S --needed --noconfirm "${AUR_PKGS[@]}" \
+    || err "部分 AUR 包安装失败（继续执行）"
+else
+  err "yay 安装失败，跳过 AUR 包"
 fi
 
 # ---------- 4. 扩展管理器 + GNOME 扩展 ----------

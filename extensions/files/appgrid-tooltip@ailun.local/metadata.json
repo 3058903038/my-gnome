@@ -1,0 +1,7 @@
+{
+  "uuid": "appgrid-tooltip@ailun.local",
+  "name": "App Grid Tooltip",
+  "description": "Show the full application name as a tooltip in the app grid when the icon label is truncated.",
+  "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
+  "version": 1
+}

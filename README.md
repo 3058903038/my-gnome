@@ -31,12 +31,12 @@ bash restore-no-gnome.sh
 |------|------|
 | 1 | 安装 GNOME 桌面环境 + gdm 显示管理器 |
 | 2 | 恢复 pacman 源配置（archlinuxcn，装 clash-verge-rev 等必需） |
-| 3 | 安装 136 个官方源软件包 |
-| 4 | 安装 9 个 AUR 包（自动先装 yay） |
-| 5 | 安装 **Extension Manager** + 恢复并启用 17 个 GNOME 扩展 |
+| 3 | 安装官方源软件包（脚本内直接列出，约 100 个） |
+| 4 | 安装 AUR / archlinuxcn 软件包（自动先装 yay，约 20 个） |
+| 5 | 安装 **Extension Manager** + 恢复并启用 19 个 GNOME 扩展 |
 | 6 | 恢复 dconf 全部设置（主题、顶栏、Openbar、输入法、窗口按钮等） |
 | 7 | 恢复 shell 配置（zsh + Oh My Zsh + Powerlevel10k） |
-| 8 | 恢复 `~/.config`（输入法环境变量、GTK、systemd user、默认应用、中文目录名） |
+| 8 | 恢复 `~/.config`（输入法环境变量、GTK、默认应用、中文目录名） |
 | 9 | 恢复主题（AZ-OS-3D 图标 / MacOSX 光标 / WhiteSur GTK）+ 桌面壁纸 |
 | 10 | 恢复 Rime 输入法配置 + 用户词库 |
 | 11 | 设置电池充电上限 85% + 启用系统服务（蓝牙、iwd、snapper 等） |
@@ -48,8 +48,8 @@ bash restore-no-gnome.sh
 | `restore.sh` | 一键恢复脚本（完整版，含安装 GNOME 桌面） |
 | `restore-no-gnome.sh` | 一键恢复脚本（无桌面版，仅恢复配置） |
 | `gnome-settings.conf` | dconf 导出的全部 GNOME 设置 |
-| `packages/pacman-explicit.txt` | 显式安装的官方包 |
-| `packages/aur.txt` | AUR 包清单 |
+| `packages/pacman-explicit.txt` | 显式安装的官方包（参考清单，安装命令已内置于脚本） |
+| `packages/aur.txt` | AUR 包清单（参考清单，安装命令已内置于脚本） |
 | `packages/all.txt` | 全部已安装包（含依赖，参考用） |
 | `extensions/enabled.txt` | 已启用的扩展清单 |
 | `extensions/files/` | 扩展代码本体（从用户目录备份） |
