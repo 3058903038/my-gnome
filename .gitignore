@@ -7,3 +7,6 @@ config/Code/User/sync/
 config/Code/User/globalStorage/
 config/Code/User/workspaceStorage/
 config/Code/User/History/
+
+# IBus 的 Rime 运行时缓存与全量词典（体积巨大，备份用 config/ibus-rime）
+config/ibus/rime/
