@@ -1,5 +1,3 @@
-Battery-Health-Charging@maniacx.github.com
-Bluetooth-Battery-Meter@maniacx.github.com
 active-app-indicator@morhenac
 add-to-desktop@tommimon.github.com
 appgrid-tooltip@ailun.local
@@ -7,7 +5,9 @@ appindicatorsupport@rgcjonas.gmail.com
 appmenu-is-back@fthx
 appnameindicator@dev64.xyz
 apps-menu@gnome-shell-extensions.gcampax.github.com
+Battery-Health-Charging@maniacx.github.com
 battery-usage-wattmeter@halfmexicanhalfamazing.gmail.com
+Bluetooth-Battery-Meter@maniacx.github.com
 blur-my-shell@aunetx
 compiz-alike-magic-lamp-effect@hermes83.github.com
 compiz-windows-effect@hermes83.github.com
