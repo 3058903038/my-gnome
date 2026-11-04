@@ -11,24 +11,42 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-THEME_SRC="$HERE/themes/tela"
+THEME_TAR="$HERE/tela-theme.tar.gz"
+THEME_SRC="$HERE/themes/tela"          # 兼容：若手动解压出目录也可
 THEME_DST="/boot/grub/themes/tela"
 THEME_TXT="/boot/grub/themes/tela/theme.txt"
 
 log() { echo "==> $*"; }
 err() { echo "!! $*" >&2; }
 
-[ -d "$THEME_SRC" ] || { err "仓库里没有 grub/themes/tela"; exit 1; }
+[ -f "$THEME_TAR" ] || [ -d "$THEME_SRC" ] || { err "仓库里没有 grub/tela-theme.tar.gz"; exit 1; }
 [ -f /etc/default/grub ] || { err "找不到 /etc/default/grub"; exit 1; }
 
-# 1) 复制主题文件
+# 1) 安装主题文件
 log "安装主题到 $THEME_DST"
 sudo mkdir -p /boot/grub/themes
 sudo rm -rf "$THEME_DST"
-sudo cp -r "$THEME_SRC" "$THEME_DST"
+
+if [ -f "$THEME_TAR" ]; then
+  TMP_T="$(mktemp -d)"
+  tar -xzf "$THEME_TAR" -C "$TMP_T" || { err "解压 tela-theme.tar.gz 失败"; rm -rf "$TMP_T"; exit 1; }
+  # 兼容包内是否带 themes/tela 前缀
+  if [ -d "$TMP_T/themes/tela" ]; then
+    sudo cp -r "$TMP_T/themes/tela" "$THEME_DST"
+  elif [ -d "$TMP_T/tela" ]; then
+    sudo cp -r "$TMP_T/tela" "$THEME_DST"
+  else
+    sudo mkdir -p "$THEME_DST"
+    sudo cp -r "$TMP_T/." "$THEME_DST/"
+  fi
+  rm -rf "$TMP_T"
+else
+  sudo cp -r "$THEME_SRC" "$THEME_DST"
+fi
+
 sudo chmod -R u+rwX,go+rX "$THEME_DST"
 [ -f "$THEME_TXT" ] || { err "theme.txt 复制失败"; exit 1; }
-log "主题文件就绪（$(find "$THEME_DST" -type f | wc -l) 个文件）"
+log "主题文件就绪（$(sudo find "$THEME_DST" -type f | wc -l) 个文件）"
 
 # 2) 幂等写入 GRUB_THEME（保留文件其余内容）
 THEME_LINE="GRUB_THEME=\"$THEME_TXT\""
@@ -60,7 +78,7 @@ if [ -f "$HERE/grub-esp-sync.sh" ]; then
   if [ -f "$HERE/zz-grub-esp-sync.hook" ]; then
     sudo install -Dm644 "$HERE/zz-grub-esp-sync.hook" /etc/pacman.d/hooks/zz-grub-esp-sync.hook
   fi
-  sudo /usr/local/bin/grub-esp-sync.sh 2>/dev/null || true
+  sudo /usr/local/bin/grub-esp-sync.sh || true
 fi
 
 log "完成。下次启动即可看到 tela 主题。"
