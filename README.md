@@ -38,6 +38,7 @@ bash restore-no-gnome.sh
 | 7 | 恢复 shell 配置（zsh + Oh My Zsh + Powerlevel10k） |
 | 8 | 恢复 `~/.config`（输入法环境变量、GTK、默认应用、中文目录名） |
 | 9 | 恢复主题（AZ-OS-3D 图标 / MacOSX 光标 / WhiteSur GTK）+ 桌面壁纸 |
+| 9b | 安装 **GRUB tela 启动主题**（含 ESP 同步脚本 + pacman 钩子） |
 | 10 | 恢复 Rime 输入法配置 + 用户词库 |
 | 11 | 设置电池充电上限 85% + 启用系统服务（蓝牙、iwd、snapper 等） |
 
@@ -67,6 +68,10 @@ bash restore-no-gnome.sh
 | `themes/MacOSX.tar.gz` | macOS 光标主题 |
 | `themes/WhiteSur.tar.gz` | WhiteSur GTK 主题（窗口外观） |
 | `themes/parts/` | AZ-OS-3D 图标主题（34 个 1MB 分片，脚本自动拼接） |
+| `grub/themes/tela/` | GRUB 启动菜单主题 tela（95 个文件，约 16MB） |
+| `grub/apply-grub-theme.sh` | GRUB 主题一键安装脚本（幂等，只改 `GRUB_THEME` 一行） |
+| `grub/grub-esp-sync.sh` | 自动识别 `/boot` 布局并同步 grub.cfg/主题到 ESP |
+| `grub/zz-grub-esp-sync.hook` | pacman 钩子，内核升级后自动同步 |
 
 ## 备注
 
@@ -99,13 +104,42 @@ AZ-OS-3D 图标主题原始压缩包 34MB，超过 Gitee 单次推送限制，�
 > 已完整备份并会自动还原的是另外 **17 个实际运行的扩展**，
 > 见 `extensions/enabled.txt` 与 `extensions/files/`。
 
-### 3. 不备份的内容（故意）
+### 3. GRUB 启动主题（tela）
 
-- `/etc/fstab`、`/etc/default/grub`、`/etc/mkinitcpio.conf`：分区 UUID、引导配置与具体硬件绑定，跨机还原会导致**无法开机**
+`restore.sh` / `restore-no-gnome.sh` 的第 9b 步会自动安装 tela 主题。
+
+**安全设计**：脚本只做三件事，全程不碰硬件相关配置。
+
+1. 把 `grub/themes/tela/` 复制到 `/boot/grub/themes/tela/`
+2. 幂等写入 `/etc/default/grub` 的 `GRUB_THEME=` 一行（已存在则跳过或更新）
+3. 执行 `grub-mkconfig -o /boot/grub/grub.cfg`（UUID / 内核参数由**目标机器自己**生成）
+
+因此跨机还原是安全的——引导配置永远来自目标机本身，不会把原机器的 UUID 带过去。
+
+**同时部署**：
+
+- `/usr/local/bin/grub-esp-sync.sh` — 自动判断 `/boot` 是否为 ESP
+  - `/boot` 本身是 ESP（vfat）→ 直接跳过，因为 GRUB 已在读同一份文件
+  - `/boot` 是普通目录、`/boot/efi` 才是 ESP → 复制 grub.cfg 和主题过去
+- `/etc/pacman.d/hooks/zz-grub-esp-sync.hook` — 内核升级后自动触发同步
+
+**手动执行**（不想跑完整 restore 时）：
+
+```bash
+bash grub/apply-grub-theme.sh
+```
+
+脚本可重复执行，不会产生副作用。下次重启即可看到 tela 主题。
+
+### 4. 不备份的内容（故意）
+
+- `/etc/fstab`、`/etc/mkinitcpio.conf`：分区 UUID 与具体硬件绑定，跨机还原会导致**无法开机**
+- `/etc/default/grub` **整体**不备份（含 UUID/内核参数），但其中的 `GRUB_THEME` 一行由
+  `grub/apply-grub-theme.sh` 单独、幂等地写入，不影响其他配置
 - Rime 的 `build/` 目录：部署时自动重新生成
 - 缓存、日志、临时文件
 
-### 4. 适用性
+### 5. 适用性
 
 - 仅适用于 **Arch Linux + GNOME**
 - 用户名默认为 `ailun`，脚本会用当前登录用户名自动适配家目录
