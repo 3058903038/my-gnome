@@ -339,6 +339,15 @@ if [ -f "$REPO_DIR/config/background" ]; then
     && log "已恢复桌面壁纸" || true
 fi
 
+# ---------- 8d. GRUB 主题（tela）----------
+if [ -f "$REPO_DIR/grub/apply-grub-theme.sh" ]; then
+  log "安装 GRUB 主题（tela）"
+  bash "$REPO_DIR/grub/apply-grub-theme.sh" \
+    || err "GRUB 主题安装失败（可手动执行 grub/apply-grub-theme.sh）"
+else
+  log "未找到 grub/apply-grub-theme.sh，跳过 GRUB 主题"
+fi
+
 # ---------- 9. Rime 输入法 ----------
 log "第 9 步：恢复 Rime 输入法配置"
 if [ -d "$REPO_DIR/config/ibus-rime" ]; then

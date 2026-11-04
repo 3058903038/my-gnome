@@ -1,0 +1,13 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = linux
+Target = linux-lts
+Target = linux-zen
+
+[Action]
+Description = Syncing GRUB config and themes to ESP...
+When = PostTransaction
+Exec = /usr/local/bin/grub-esp-sync.sh
