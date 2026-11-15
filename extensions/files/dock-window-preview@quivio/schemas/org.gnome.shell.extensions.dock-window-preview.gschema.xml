@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.dock-window-preview" path="/org/gnome/shell/extensions/dock-window-preview/">
+    <key name="hover-delay-ms" type="i">
+      <default>180</default>
+      <summary>Hover delay in milliseconds</summary>
+      <description>Delay before the preview popup appears after the pointer enters a dock icon.</description>
+    </key>
+    <key name="preview-layout" type="s">
+      <default>'vertical'</default>
+      <choices>
+        <choice value='vertical'/>
+        <choice value='horizontal'/>
+      </choices>
+      <summary>Preview layout orientation</summary>
+      <description>Whether previews are arranged in a vertical stack or horizontal strip.</description>
+    </key>
+    <key name="preview-width" type="i">
+      <default>260</default>
+      <summary>Preview thumbnail width</summary>
+      <description>Width of each preview thumbnail in pixels.</description>
+    </key>
+    <key name="preview-height" type="i">
+      <default>160</default>
+      <summary>Preview thumbnail height</summary>
+      <description>Height of each preview thumbnail in pixels.</description>
+    </key>
+    <key name="title-overflow-mode" type="s">
+      <default>'truncate'</default>
+      <choices>
+        <choice value='truncate'/>
+        <choice value='wrap'/>
+      </choices>
+      <summary>Preview title overflow behavior</summary>
+      <description>Whether long window titles are truncated with ellipsis or wrapped to the next line.</description>
+    </key>
+    <key name="middle-click-close" type="b">
+      <default>true</default>
+      <summary>Middle-click closes window</summary>
+      <description>Whether middle-clicking a window preview closes that window.</description>
+    </key>
+    <key name="show-close-button" type="b">
+      <default>false</default>
+      <summary>Show close button in previews</summary>
+      <description>Whether each hover preview shows a close button for closing the corresponding window.</description>
+    </key>
+    <key name="close-button-position" type="s">
+      <default>'right'</default>
+      <choices>
+        <choice value='left'/>
+        <choice value='right'/>
+      </choices>
+      <summary>Close button position</summary>
+      <description>Whether the preview close button is shown on the left or right side of the preview card.</description>
+    </key>
+    <key name="maximize-to-new-workspace" type="b">
+      <default>false</default>
+      <summary>Maximize windows on a new workspace</summary>
+      <description>Whether maximized application windows are moved to a dedicated workspace and returned when restored.</description>
+    </key>
+    <key name="popup-fade-duration-ms" type="i">
+      <default>150</default>
+      <summary>Popup fade animation duration</summary>
+      <description>Duration of the fade-in/fade-out animation for the preview popup in milliseconds.</description>
+    </key>
+    <key name="enriched-preview-enabled" type="b">
+      <default>true</default>
+      <summary>Enable enriched preview on hover</summary>
+      <description>When hovering a window preview item, show a larger centered preview after a delay.</description>
+    </key>
+    <key name="enriched-preview-delay-ms" type="i">
+      <default>120</default>
+      <summary>Enriched preview hover delay</summary>
+      <description>Delay before the enriched preview appears when hovering a window preview item (milliseconds).</description>
+    </key>
+    <key name="enriched-preview-fade-duration-ms" type="i">
+      <default>240</default>
+      <summary>Enriched preview fade animation duration</summary>
+      <description>Duration of the fade-in/fade-out animation for the enriched preview in milliseconds.</description>
+    </key>
+    <key name="enriched-preview-size-percent" type="i">
+      <default>85</default>
+      <summary>Enriched preview size</summary>
+      <description>Maximum percentage of the monitor used by the centered enriched preview.</description>
+    </key>
+    <key name="peek-enabled" type="b">
+      <default>false</default>
+      <summary>Enable Peek on hover</summary>
+      <description>Keep the hovered preview window visible while fading other windows.</description>
+    </key>
+  </schema>
+</schemalist>

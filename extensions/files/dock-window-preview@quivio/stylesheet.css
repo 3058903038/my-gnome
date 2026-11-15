@@ -1,0 +1,81 @@
+.dock-preview-popup {
+    background-color: rgba(24, 24, 28, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 10px;
+    spacing: 8px;
+}
+
+.dock-preview-header {
+    color: #f4f4f5;
+    font-size: 11pt;
+    font-weight: 700;
+}
+
+.dock-preview-items {
+    spacing: 8px;
+}
+
+.dock-preview-item {
+    border-radius: 10px;
+    padding: 6px;
+    background-color: rgba(255, 255, 255, 0.03);
+    transition-duration: 120ms;
+    transition-timing-function: ease-out;
+}
+
+.dock-preview-item:hover,
+.dock-preview-item:focus {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.dock-preview-item-frame {
+    margin: 0;
+}
+
+.dock-preview-item-controls {
+    padding: 10px 10px 0 10px;
+}
+
+.dock-preview-thumb {
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+.dock-preview-title {
+    margin-top: 6px;
+    color: #ececef;
+    font-size: 9.5pt;
+}
+
+.dock-preview-close-button {
+    margin: 0;
+    padding: 6px;
+    border-radius: 999px;
+    background-color: rgba(10, 10, 12, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    transition-duration: 120ms;
+    transition-timing-function: ease-out;
+}
+
+.dock-preview-close-button:hover,
+.dock-preview-close-button:focus {
+    background-color: rgba(160, 32, 32, 0.9);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.dock-preview-close-icon {
+    icon-size: 12px;
+    color: #ffffff;
+}
+
+/* Enriched Preview Styles */
+.dock-enriched-preview {
+    background-color: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    padding: 0;
+    box-shadow: none;
+    overflow: hidden;
+}

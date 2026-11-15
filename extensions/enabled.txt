@@ -12,8 +12,10 @@ blur-my-shell@aunetx
 compiz-alike-magic-lamp-effect@hermes83.github.com
 compiz-windows-effect@hermes83.github.com
 dash-to-dock@micxgx.gmail.com
+dock-window-preview@quivio
 forge@jmmaranan.com
 gnome-fuzzy-app-search@gnome-shell-extensions.Czarlie.gitlab.com
+GPaste@gnome-shell-extensions.gnome.org
 gtk4-ding@smedius.gitlab.com
 just-perfection-desktop@just-perfection
 kimpanel@kde.org

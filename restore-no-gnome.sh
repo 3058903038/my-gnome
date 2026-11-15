@@ -250,6 +250,13 @@ copy_config "$REPO_DIR/config/flameshot"  "$HOME_DIR/.config/flameshot"
 copy_config "$REPO_DIR/config/Code/User"  "$HOME_DIR/.config/Code/User"
 [ -f "$REPO_DIR/config/QtProject.conf" ] && cp -f "$REPO_DIR/config/QtProject.conf" "$HOME_DIR/.config/" 2>/dev/null || true
 
+# 7b2. 恢复文件模板（右键「新建文档」的模板源，GNOME/DING 读取 ~/Templates）
+if [ -d "$REPO_DIR/templates" ]; then
+  mkdir -p "$HOME_DIR/Templates"
+  cp -a "$REPO_DIR/templates/." "$HOME_DIR/Templates/" 2>/dev/null \
+    && log "已恢复文件模板：~/Templates" || err "模板恢复失败"
+fi
+
 # 7c. 用户字体（霞鹜文楷 LXGW WenKai，含等宽版）
 # 字体体积大（每个 25MB，共 154MB），不放进仓库；这里从 GitHub Release 自动下载。
 # 仓库里若有 fonts/*.ttf 则优先用本地的，省一次下载。

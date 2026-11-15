@@ -987,6 +987,9 @@ const DesktopBackgroundMenu = class {
                 _('New Document'), templatesmenu);
         }
 
+        this.desktopBackgroundGioMenu.append(
+            _('Update Desktop'), 'app.updateDesktop');
+
         const pasteUndoRedoMenu = Gio.Menu.new();
         if (this._mainApp.lookup_action('doPaste').get_enabled())
             pasteUndoRedoMenu.append(_('Paste'), 'app.doPaste');

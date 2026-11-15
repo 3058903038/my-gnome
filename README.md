@@ -55,6 +55,7 @@ bash restore-no-gnome.sh
 | `extensions/enabled.txt` | 已启用的扩展清单 |
 | `extensions/files/` | 扩展代码本体（从用户目录备份） |
 | `extensions/MISSING-extensions.md` | 未备份扩展清单（见下方备注） |
+| `templates/` | 文件模板（`~/Templates` 备份，右键「新建文档」的条目来源） |
 | `config/` | `~/.config` 下关键配置 + 壁纸 `background` + Rime 词库 |
 | `config/nvim/` | Neovim 配置（`init.lua`） |
 | `config/Code/User/` | VS Code 用户配置（`settings.json` / snippets / profiles） |
@@ -81,7 +82,7 @@ AZ-OS-3D 图标主题原始压缩包 34MB，超过 Gitee 单次推送限制，�
 34 个 1MB 分片存放在 `themes/parts/`。`restore.sh` 会自动用 `cat` 拼接还原，
 **无需手动处理**。
 
-### 2. 8 个需要手动补装
+### 2. 10 个需要手动补装
 
 以下扩展在当前系统的 dconf 中标记为「已启用」，但系统中实际**不存在其文件**
 （属于残留记录，当前并未真正运行）。它们的启用状态已保存在
@@ -98,11 +99,14 @@ AZ-OS-3D 图标主题原始压缩包 34MB，超过 Gitee 单次推送限制，�
 | 6 | `system-monitor-next@paradoxxx.zero.gmail.com` | System Monitor Next | **顶栏系统监视器**。在顶栏实时显示 CPU 占用率、内存用量、交换分区、网络上下行速率、磁盘读写、温度等，可自定义显示哪些指标和刷新频率。 |
 | 7 | `battery-usage-wattmeter@halfmexicanhalfamazing.gmail.com` | Battery Usage Wattmeter | **顶栏显示电池实时功率（瓦特）**。除电量百分比外，还能看到当前放电/充电功率（如 8.5W），便于判断哪个程序耗电快。 |
 | 8 | `kimpanel@kde.org` | Kimpanel | **KDE 输入法面板协议支持**。让 GNOME 顶栏能显示 fcitx5/ibus 等输入法的候选词面板（配合 kimpanel 输入法模块使用）。你现在用 ibus-rime，一般用不到，但装上可与 KDE 输入法框架互通。 |
+| 9 | `preserve-battery-health@marcosdalvarez.org` | Preserve Battery Health | **电池健康保护**：限制充电区间（如充到 80% 停、低于 20% 才充），减少锂电池满电损耗。 |
+| 10 | `tweaks-system-menu@extensions.gnome-shell.fifi.org` | Tweaks System Menu | **在系统菜单里加入「优化」快捷入口**，省去从应用列表找 GNOME Tweaks 的步骤。 |
 
 **补装方法**：打开 **Extension Manager**（`restore.sh` 已自动安装）→ 搜索上面的「扩展名」列 → 点安装。装好后会自动处于启用状态（dconf 已记录）。
 
-> 已完整备份并会自动还原的是另外 **17 个实际运行的扩展**，
+> 已完整备份并会自动还原的是另外 **20 个实际运行的扩展**，
 > 见 `extensions/enabled.txt` 与 `extensions/files/`。
+> 另有 `GPaste@gnome-shell-extensions.gnome.org` 属系统包自带的扩展，无需备份。
 
 ### 3. GRUB 启动主题（tela）
 
@@ -131,7 +135,18 @@ bash grub/apply-grub-theme.sh
 
 脚本可重复执行，不会产生副作用。下次重启即可看到 tela 主题。
 
-### 4. 不备份的内容（故意）
+### 4. 本机定制项
+
+| 项目 | 位置 | 说明 |
+|---|---|---|
+| 文件模板 | `templates/` → `~/Templates/` | 右键桌面「新建文档」的子菜单条目。已加 `新建文本.txt`（纯文本）。想增减菜单项，直接增删 `~/Templates/` 里的文件。 |
+| DING 右键「更新桌面」 | `extensions/files/gtk4-ding@smedius.gitlab.com/app/desktopMenu.js` | 在「新建文档」后插入 `_('Update Desktop')` → `app.updateDesktop`，等价于 F5。**DING 升级会被覆盖**，需手动重加。 |
+
+> 注意：DING 的补丁是直接改扩展源码，`restore.sh` 只会把 `extensions/files/` 里的版本
+> 复制到用户扩展目录（目标已存在时跳过），所以**新机器上会带上这个补丁**；
+> 但本机上通过 Extension Manager 升级 DING 后会被覆盖。
+
+### 5. 不备份的内容（故意）
 
 - `/etc/fstab`、`/etc/mkinitcpio.conf`：分区 UUID 与具体硬件绑定，跨机还原会导致**无法开机**
 - `/etc/default/grub` **整体**不备份（含 UUID/内核参数），但其中的 `GRUB_THEME` 一行由
@@ -139,7 +154,7 @@ bash grub/apply-grub-theme.sh
 - Rime 的 `build/` 目录：部署时自动重新生成
 - 缓存、日志、临时文件
 
-### 5. 适用性
+### 6. 适用性
 
 - 仅适用于 **Arch Linux + GNOME**
 - 用户名默认为 `ailun`，脚本会用当前登录用户名自动适配家目录
